@@ -53,7 +53,7 @@ class Ale:
 		arguments to define a clip.
 
 		Raises:
-			RuntimeError: Clip(s) supplied as an unknown format
+			ValueError: Clip(s) supplied as an unknown format
 		"""
 		
 		shots = [kwargs] if kwargs.keys() else []
@@ -63,7 +63,7 @@ class Ale:
 			elif type(arg) is dict:
 				shots.append(arg)
 			else:
-				raise RuntimeError(f"Invalid shot: {arg}")
+				raise ValueError(f"Invalid shot: {arg}")
 		
 		for shot in shots:
 			{shot.update({x:str(shot.get(x))}) for x in shot.keys()}
@@ -93,7 +93,7 @@ class Ale:
 
 		Raises:
 			FileNotFoundError: ALE not found
-			RuntimeError: ALE invalid
+			SyntaxError: ALE invalid
 		"""
 		
 		self.path_input = pathlib.Path(path_input)
@@ -121,7 +121,7 @@ class Ale:
 					
 					# Freak out if column count doesn't match shot attribute count
 					if len(shot_data) != len(parsed_columns):
-						raise RuntimeError(f"Shot attribute count ({len(shot_data)}) does not match column count ({len(parsed_columns)}) on line {line_num}")
+						raise SyntaxError(f"Shot attribute count ({len(shot_data)}) does not match column count ({len(parsed_columns)}) on line {line_num}")
 
 					# Add attributes that aren't empty
 					self.addClips({parsed_columns[index]: shot_attrib for index,shot_attrib in enumerate(shot_data) if len(shot_attrib)})
@@ -144,7 +144,7 @@ class Ale:
 						continue
 
 					elif len(parsed_columns):
-						raise RuntimeError(f"Unexpected data encounered on line {line_num}:\n{line_data}")
+						raise SyntaxError(f"Unexpected data encounered on line {line_num}:\n{line_data}")
 				
 					else:
 						parsed_columns = line_data.split('\t')
@@ -152,7 +152,7 @@ class Ale:
 						# Check for duplicate column names
 						dupes = {col for col in parsed_columns if parsed_columns.count(col) > 1}
 						if dupes:
-							raise RuntimeError(f"Found duplicate column names on line {line_num}:\n{','.join(dupes)}")
+							raise SyntaxError(f"Found duplicate column names on line {line_num}:\n{','.join(dupes)}")
 
 						{self.columns.append(col) for col in parsed_columns if col not in self.columns}
 
@@ -162,11 +162,11 @@ class Ale:
 						parse_mode = ParseModes.HEADING
 						continue
 
-					raise RuntimeError(f"Unexpected data before Heading on line {line_num}:\n{line_data}")
+					raise SyntaxError(f"Unexpected data before Heading on line {line_num}:\n{line_data}")
 				
 				# I don't think we'll ever get here but =====
 				else:
-					raise RuntimeError(f"Unexpected data on line {line_num}: {line_data}")
+					raise SyntaxError(f"Unexpected data on line {line_num}: {line_data}")
 
 	# Remove empty columns while preserving column order
 	def getPopulatedColumns(self):
@@ -201,7 +201,7 @@ class Ale:
 			omitColumns {iter} -- Provide a list of columns to leave out of the formatted ALE (default: {None})
 
 		Raises:
-			RuntimeError: Invalid options set
+			ValueError: Invalid options set
 
 		Returns:
 			iostream -- The stream that was being written
@@ -213,7 +213,7 @@ class Ale:
 		if type(omitColumns) is list:
 			{used_columns.remove(x) for x in omitColumns if x in used_columns}
 		elif omitColumns:
-			raise RuntimeError("omitColumns must be a list")
+			raise ValueError("omitColumns must be a list")
 
 		# Build heading
 		print("Heading", file=stream_output)
