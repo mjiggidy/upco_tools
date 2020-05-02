@@ -30,16 +30,18 @@ class Ale:
 		"""
 		
 		self.path_input = None
-		self.heading = {"FIELD_DELIM":"TABS", "VIDEO_FORMAT":"1080","AUDIO_FORMAT":"48khz","FPS":"23.976"}
-		self.columns = ["Tape","Start","Duration"]
+		self.heading = {}
+		self.columns = []
 		self.shots = []
 
 		# Parse existing ALE if provided
 		if path_input:
-			try:
-				self.__parseAleFromFile(path_input)
-			except Exception as e:
-				raise e
+			self.__parseAleFromFile(path_input)
+
+		# Otherwise start with some basic columns
+		else:
+			self.heading.update({"FIELD_DELIM":"TABS", "VIDEO_FORMAT":"1080","AUDIO_FORMAT":"48khz","FPS":"23.976"})
+			self.columns.extend(["Name","Tape","Start","Duration"])
 	
 	def addClips(self, *args, **kwargs):
 		"""
@@ -94,11 +96,8 @@ class Ale:
 			RuntimeError: ALE invalid
 		"""
 		
-		try:
-			self.path_input = pathlib.Path(path_input)
-			if not self.path_input.is_file(): raise FileNotFoundError(f"{path_input} is not found")
-		except Exception as e:
-			raise e
+		self.path_input = pathlib.Path(path_input)
+		if not self.path_input.is_file(): raise FileNotFoundError(f"{path_input} is not found")
 
 		with self.path_input.open('r') as ale_input:
 
@@ -258,10 +257,7 @@ class Ale:
 			pathlib.Path -- Path of the written file
 		"""
 
-		try:
-			path_output = pathlib.Path(path_output)
-		except Exception as e:
-			raise e
+		path_output = pathlib.Path(path_output)
 		
 		with path_output.open('w') as file_output:
 			self.__buildAle(file_output, preserveEmptyColumns, omitColumns)
