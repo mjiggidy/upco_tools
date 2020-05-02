@@ -132,7 +132,7 @@ class Ale:
 						continue
 					
 					header = line_data.split('\t')
-					self.heading.update({header[0]:header[1]})					
+					self.heading.update({header[0]:header[1]})
 				
 				# Parse Column names ======
 				elif parse_mode == ParseModes.COLUMN:
@@ -141,10 +141,7 @@ class Ale:
 						parse_mode = ParseModes.DATA
 						continue
 
-				#	Disabled existing column check due to default columns set
-				# 	
-				#	elif len(self.columns):
-				#		raise RuntimeError(f"Unexpected column data on line {line_num}")
+					# TODO: Parse columns locally and append them to self.columns
 				
 					else:
 						self.columns = line_data.split('\t')
