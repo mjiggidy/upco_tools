@@ -7,7 +7,7 @@ import pathlib, re
 
 class FileSequence:
 
-	pattern_sequence = re.compile(r"^(?P<basename>.*)(?P<index>\d+)$")
+	pattern_sequence = re.compile(r"^(?P<basename>.*?)(?P<index>\d+)$")
 
 	def __init__(self, pathlist):
 
@@ -47,7 +47,7 @@ class FileSequence:
 
 	class GroupedFiles:
 
-		def __init(self, parent, basename, index, padding, ext):
+		def __init__(self, parent, basename, index, padding, ext):
 
 			self.parent   = pathlib.Path(parent)
 			self.basename = str(basename)
@@ -64,7 +64,7 @@ class FileSequence:
 			if self.isSingle():
 				return pathlib.Path(self.parent, f"{self.basename}{self.ext}")
 			else:
-				return pathlib.Path(self.parent, f"{self.basename}[{str(self.min).zfill(self.padding)}-[{str(self.max).zfill(self.padding)}]{self.ext}")
+				return pathlib.Path(self.parent, f"{self.basename}[{str(self.min).zfill(self.padding)}-{str(self.max).zfill(self.padding)}]{self.ext}")
 		
 		def expand(self):
 			for idx in range(self.min, self.max):
