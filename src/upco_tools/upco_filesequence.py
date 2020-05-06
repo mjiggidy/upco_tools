@@ -5,7 +5,7 @@
 import pathlib, re
 #import upco_timecode
 
-class FileSequence:
+class Sequencer:
 
 	pattern_sequence = re.compile(r"^(?P<basename>.*?)(?P<index>\d+)$")
 
@@ -22,8 +22,7 @@ class FileSequence:
 
 		if not match:
 			# TODO: Catalog non-sequenced files
-			#self.sequences.append(self.__class__.GroupedFiles(path))
-			pass
+			self.sequences.append(FileSequence(path.parent, path.stem, 0, 0, path.suffix))
 		
 		else:
 			parent   = path.parent
@@ -38,39 +37,43 @@ class FileSequence:
 				self.sequences[-1].max += 1
 
 			else:
-				self.sequences.append(self.__class__.GroupedFiles(parent, basename, index, padding, ext))
+				self.sequences.append(FileSequence(parent, basename, index, padding, ext))
 
 	def list(self, expanded=False):
-		for seq in self.sequences:
-			yield seq.grouped()
+		return [seq.grouped() for seq in self.sequences]
 
+class FileSequence:
 
-	class GroupedFiles:
+	def __init__(self, parent, basename, index, padding, ext):
 
-		def __init__(self, parent, basename, index, padding, ext):
+		self.parent   = pathlib.Path(parent)
+		self.basename = str(basename)
+		self.padding  = int(padding)
+		self.ext	  = str(ext)
 
-			self.parent   = pathlib.Path(parent)
-			self.basename = str(basename)
-			self.padding  = int(padding)
-			self.ext	  = str(ext)
+		self.min = self.max = int(index)
+	
+	def __str__(self):
+		return str(self.grouped())
 
-			self.min = self.max = int(index)
-		
-		def __str__(self):
-			return str(self.grouped())
+	def grouped(self):
+		if self.isSingle():
+			return pathlib.Path(self.parent, f"{self.basename}{self.ext}")
+		else:
+			return pathlib.Path(self.parent, f"{self.basename}[{str(self.min).zfill(self.padding)}-{str(self.max).zfill(self.padding)}]{self.ext}")
+	
+	def expand(self):
+		if self.isSingle() and self.padding == 0:
+			expanded = [pathlib.Path(self.parent, f"{self.basename}{self.ext}")]
 
-		def grouped(self):
-
-			if self.isSingle():
-				return pathlib.Path(self.parent, f"{self.basename}{self.ext}")
-			else:
-				return pathlib.Path(self.parent, f"{self.basename}[{str(self.min).zfill(self.padding)}-{str(self.max).zfill(self.padding)}]{self.ext}")
-		
-		def expand(self):
+		else:
+			expanded = []
 			for idx in range(self.min, self.max):
-				yield pathlib.Path(self.parent, f"{self.basename}{str(idx).zfill(self.padding)}{self.ext}")
+				expanded.append(pathlib.Path(self.parent, f"{self.basename}{str(idx).zfill(self.padding)}{self.ext}"))
+		
+		return expanded
 
-		def isSingle(self):
-			return self.min == self.max
+	def isSingle(self):
+		return self.min == self.max
 
 
