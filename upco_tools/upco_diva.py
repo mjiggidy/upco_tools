@@ -52,4 +52,9 @@ class Diva:
 		# Validate category
 		# Check for duplicate object names
 		# Check for tapes belonging to category
-		
+		pass
+
+	def checkStatus(self, job_id):
+		# Check status for job_id
+		# Return state; possibly as Enum
+		pass
