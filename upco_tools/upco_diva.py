@@ -6,14 +6,14 @@ class Diva:
 		
 		self.man_ip = manager_ip
 		self.man_port = manager_port
-		self.divascript_exec = "divascript.exe"
+		self.divascript_exec = pathlib.Path(__file__).parent/"bin"/"win32"/"divascript.exe"
 
-		if not pathlib.Path(self.divascript_exec).is_file():
+		if not self.divascript_exec.is_file():
 			raise RuntimeError(f"Cannot find divascript at {self.divascript_exec}")
 
 		# Open connection to Diva manager via divascript
 		self.diva_server = subprocess.Popen([
-			self.divascript_exec, "connect",
+			str(self.divascript_exec), "connect",
 			"-mi", manager_ip,
 			"-mp", manager_port],
 			stdout = subprocess.PIPE,
@@ -32,16 +32,16 @@ class Diva:
 
 	def restoreObject(self, object_name, category, destination=None, path=None):
 		
-		if not any(destination, path):
+		if not any((destination, path)):
 			raise ValueError("A valid restore destination or path is required")
-		elif all(destination, path):
+		elif all((destination, path)):
 			raise ValueError("Only one destination or path may be specified")
 
 		diva_client = subprocess.Popen([
-			self.divascript_exec, "restore",
+			str(self.divascript_exec), "restore",
 			"-obj", object_name,
 			"-cat", category,
-			"-dest", destination],
+			"-src", destination],
 			stdout = subprocess.PIPE,
 			stderr = subprocess.PIPE
 		)
