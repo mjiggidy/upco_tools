@@ -13,6 +13,29 @@ class Diva:
 
 		# Open connection to Diva manager via divascript
 		self.diva_server = subprocess.Popen([
+			str(self.divascript_exec), "listen"],
+			stdout = subprocess.PIPE,
+			stderr = subprocess.PIPE
+		)
+
+		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
+		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
+
+		
+		print(f"Connecting to {manager_ip}:{manager_port}...")
+		self.__connect(manager_ip, manager_port)
+
+		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
+		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
+
+		if not self.isConnected():
+			raise RuntimeError(f"Error starting Divascript server: {self.diva_server.returncode}")
+
+		# TODO: Add more robust error reporting
+	
+	def __connect(self, manager_ip, manager_port):
+		
+		diva_client = subprocess.Popen([
 			str(self.divascript_exec), "connect",
 			"-mi", manager_ip,
 			"-mp", manager_port],
@@ -20,10 +43,8 @@ class Diva:
 			stderr = subprocess.PIPE
 		)
 
-		if not self.isConnected():
-			raise RuntimeError(f"Error starting Divascript server: {self.diva_server.returncode}")
-
-		# TODO: Add more robust error reporting
+		#{print(f"client.stdout: {str(x)}") for x in diva_client.stdout.readlines()}
+		#{print(f"client.stderr: {str(x)}") for x in diva_client.stderr.readlines()}
 
 
 	def isConnected(self):
@@ -34,7 +55,8 @@ class Diva:
 		
 		if not any((destination, path)):
 			raise ValueError("A valid restore destination or path is required")
-		elif all((destination, path)):
+		
+		if all((destination, path)):
 			raise ValueError("Only one destination or path may be specified")
 
 		diva_client = subprocess.Popen([
@@ -45,6 +67,14 @@ class Diva:
 			stdout = subprocess.PIPE,
 			stderr = subprocess.PIPE
 		)
+
+		{print(f"client.stdout: {str(x)}") for x in diva_client.stdout.readlines()}
+		{print(f"client.stderr: {str(x)}") for x in diva_client.stderr.readlines()}
+
+		{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
+		{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
+
+
 		
 		# TODO: Add Errors
 
