@@ -48,7 +48,7 @@ class Shot:
 		if self.tc_start < tc_end:
 			self.tc_duration = tc_end - self.tc_start
 		else:
-			raise ValueError(f"TC End {tc_end} must not preceed TC Start {self.tc_start}")
+			raise ValueError(f"TC End {tc_end} must not precede TC Start {self.tc_start}")
 
 	# TODO: Look in to making these @properties as well
 	def add_metadata(self, metadata):	
