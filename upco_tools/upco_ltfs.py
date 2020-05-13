@@ -73,7 +73,7 @@ class Tape:
 		if not path_ltfsbin.exists(): raise Exception(f"LTFS binary not found at {path_ltfsbin}")
 		
 		self.ltfs_exec = subprocess.Popen([
-			str(path_ltfsbin), str(self.mount_point),					# ltfs.exe G:
+			str(path_ltfsbin), str(self.mount_point),		# ltfs.exe G:
 			"-o","devname={}".format(self.dev_name),		# machine name; ex TAPE0
 			"-o","ro",										# mount as read-only
 			"-o","eject",									# eject after process is terminated
