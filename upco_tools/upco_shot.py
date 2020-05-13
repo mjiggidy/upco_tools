@@ -17,9 +17,9 @@ class Shot:
 		self.tc_start = tc_start
 
 		# Duration takes presidence over end TC if both are supplied
-		if tc_duration:
-			self.tc_duration = tc_duration
-		else: self.tc_end = tc_end
+		if tc_duration is not None: self.tc_duration = tc_duration
+		elif tc_end is not None: self.tc_end = tc_end
+		else: raise ValueError("Either tc_duration or tc_end must be specified")
 
 		if metadata: self.add_metadata(metadata)
 	
