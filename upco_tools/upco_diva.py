@@ -1,6 +1,14 @@
-import subprocess, pathlib
+import subprocess, pathlib, enum
 
 class Diva:
+
+	class DivaCodes(enum.Enum):
+		OK = 0
+		ALREADY_CONNECTED = 1006
+		OBJECT_NOT_FOUND = 1009
+		DESTINATION_NOT_FOUND = 1018
+		MANAGER_NOT_FOUND = 1003
+		LISTENER_NOT_FOUND = 4294967295
 
 	def __init__(self, manager_ip, manager_port):
 		
@@ -15,8 +23,13 @@ class Diva:
 		self.diva_server = subprocess.Popen([
 			str(self.divascript_exec), "listen"],
 			stdout = subprocess.PIPE,
-			stderr = subprocess.PIPE
+			stderr = subprocess.PIPE,
+			text = True
 		)
+
+		if self.diva_server.poll() is not None:
+			self.diva_server.communicate()
+			raise RuntimeError(f"Error starting Divascript listener: {self.diva_server.stdout.readlines()}\nCode: {self.diva_server.returncode}\nCode Enum: {self.__class__.DivaCodes(self.diva_server.returncode)}")
 
 		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
 		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
@@ -29,24 +42,58 @@ class Diva:
 		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
 
 		if not self.isConnected():
+			print(self.diva_server.communicate())
 			raise RuntimeError(f"Error starting Divascript server: {self.diva_server.returncode}")
 
 		# TODO: Add more robust error reporting
 	
+	def __del__(self):
+		
+		#if self.isConnected():
+		#	self.__disconnect()
+
+		print("In __del__()")
+		# TODO: Hangs; In text mode: NoneType has no attribute utf8_mode
+		diva_client = subprocess.run(
+			[str(self.divascript_exec), "stopserver"],
+			capture_output = True
+		)
+
+		print(f"Listener still running? {self.isConnected()}")
+
+
+	
 	def __connect(self, manager_ip, manager_port):
 		
-		diva_client = subprocess.Popen([
+		diva_client = subprocess.run([
 			str(self.divascript_exec), "connect",
 			"-mi", manager_ip,
 			"-mp", manager_port],
-			stdout = subprocess.PIPE,
-			stderr = subprocess.PIPE
+			text = True,
+			capture_output = True
 		)
 
-		#{print(f"client.stdout: {str(x)}") for x in diva_client.stdout.readlines()}
-		#{print(f"client.stderr: {str(x)}") for x in diva_client.stderr.readlines()}
+		print("In __connect()")
+		print(f"client.returncode: {diva_client.returncode}")
+		print(f"client.stdout: {diva_client.stdout}")
+		print(f"client.stderr: {diva_client.stderr}")
 
 
+	# TODO: Hangs and gives weird errors
+	def __disconnect(self):
+		 
+		diva_client = subprocess.run(
+			[str(self.divascript_exec), "disconnect"],
+			capture_output = True
+		)
+
+		print("In __disconnect()")
+		print(f"client.returncode: {diva_client.returncode}")
+		print(f"client.stdout: {diva_client.stdout}")
+		print(f"client.stderr: {diva_client.stderr}")
+
+
+	# TODO: Need to differentiate between listener running/notrunning and listener connected/disconnected to manager
 	def isConnected(self):
 		return self.diva_server.poll() is None
 
@@ -59,20 +106,22 @@ class Diva:
 		if all((destination, path)):
 			raise ValueError("Only one destination or path may be specified")
 
-		diva_client = subprocess.Popen([
+		diva_client = subprocess.run([
 			str(self.divascript_exec), "restore",
 			"-obj", object_name,
 			"-cat", category,
 			"-src", destination],
-			stdout = subprocess.PIPE,
-			stderr = subprocess.PIPE
+			text = True,
+			capture_output = True
 		)
 
-		{print(f"client.stdout: {str(x)}") for x in diva_client.stdout.readlines()}
-		{print(f"client.stderr: {str(x)}") for x in diva_client.stderr.readlines()}
+		print("In restoreObject()")
+		print(f"client.returncode: {diva_client.returncode}")
+		print(f"client.stdout: {diva_client.stdout}")
+		print(f"client.stderr: {diva_client.stderr}")
 
-		{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
-		{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
+		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
+		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
 
 
 		
@@ -84,7 +133,16 @@ class Diva:
 		# Check for tapes belonging to category
 		pass
 
-	def checkStatus(self, job_id):
-		# Check status for job_id
-		# Return state; possibly as Enum
-		pass
+	def getStatus(self, job_id):
+
+		diva_client = subprocess.run([
+			str(self.divascript_exec), "reqinfo",
+			"-req", str(job_id)],
+			text = True,
+			capture_output = True
+		)		
+
+		print("In getStatus()")
+		print(f"client.returncode: {diva_client.returncode}")
+		print(f"client.stdout: {diva_client.stdout}")
+		print(f"client.stderr: {diva_client.stderr}")
