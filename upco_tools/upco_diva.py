@@ -1,14 +1,14 @@
 import subprocess, pathlib, enum
 
-class Diva:
+class DivaCodes(enum.IntEnum):
+	OK = 0
+	MANAGER_NOT_FOUND = 1003
+	ALREADY_CONNECTED = 1006
+	OBJECT_NOT_FOUND  = 1009
+	DESTINATION_NOT_FOUND = 1018
+	LISTENER_NOT_FOUND = 4294967295
 
-	class DivaCodes(enum.IntEnum):
-		OK = 0
-		MANAGER_NOT_FOUND = 1003
-		ALREADY_CONNECTED = 1006
-		OBJECT_NOT_FOUND  = 1009
-		DESTINATION_NOT_FOUND = 1018
-		LISTENER_NOT_FOUND = 4294967295
+class Diva:
 
 	def __init__(self, manager_ip, manager_port):
 		
@@ -31,16 +31,16 @@ class Diva:
 			capture_output = True
 		)
 
-		if diva_client.returncode == self.__class__.DivaCodes.OK:
+		if diva_client.returncode == DivaCodes.OK:
 			print(f"Successfully connected to {manager_ip}:{manager_port}")
 			
-		elif diva_client.returncode == self.__class__.DivaCodes.ALREADY_CONNECTED:
+		elif diva_client.returncode == DivaCodes.ALREADY_CONNECTED:
 			print(f"Already connected: {diva_client.stdout}")
 		
-		elif diva_client.returncode == self.__class__.DivaCodes.LISTENER_NOT_FOUND:
+		elif diva_client.returncode == DivaCodes.LISTENER_NOT_FOUND:
 			raise RuntimeError(f"Divascript Listener service is not running")
 
-		elif diva_client.returncode == self.__class__.DivaCodes.MANAGER_NOT_FOUND:
+		elif diva_client.returncode == DivaCodes.MANAGER_NOT_FOUND:
 			raise ConnectionError(f"Diva Manager not found at {manager_ip}:{manager_port}")
 
 
