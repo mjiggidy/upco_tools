@@ -2,12 +2,12 @@ import subprocess, pathlib, enum
 
 class Diva:
 
-	class DivaCodes(enum.Enum):
+	class DivaCodes(enum.IntEnum):
 		OK = 0
-		ALREADY_CONNECTED = 1006
-		OBJECT_NOT_FOUND = 1009
-		DESTINATION_NOT_FOUND = 1018
 		MANAGER_NOT_FOUND = 1003
+		ALREADY_CONNECTED = 1006
+		OBJECT_NOT_FOUND  = 1009
+		DESTINATION_NOT_FOUND = 1018
 		LISTENER_NOT_FOUND = 4294967295
 
 	def __init__(self, manager_ip, manager_port):
@@ -19,49 +19,7 @@ class Diva:
 		if not self.divascript_exec.is_file():
 			raise RuntimeError(f"Cannot find divascript at {self.divascript_exec}")
 
-		# Open connection to Diva manager via divascript
-		self.diva_server = subprocess.Popen([
-			str(self.divascript_exec), "listen"],
-			stdout = subprocess.PIPE,
-			stderr = subprocess.PIPE,
-			text = True
-		)
-
-		if self.diva_server.poll() is not None:
-			self.diva_server.communicate()
-			raise RuntimeError(f"Error starting Divascript listener: {self.diva_server.stdout.readlines()}\nCode: {self.diva_server.returncode}\nCode Enum: {self.__class__.DivaCodes(self.diva_server.returncode)}")
-
-		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
-		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
-
-		
-		print(f"Connecting to {manager_ip}:{manager_port}...")
 		self.__connect(manager_ip, manager_port)
-
-		#{print(f"server.stdout: {str(x)}") for x in self.diva_server.stdout.readlines()}
-		#{print(f"server.stderr: {str(x)}") for x in self.diva_server.stderr.readlines()}
-
-		if not self.isConnected():
-			print(self.diva_server.communicate())
-			raise RuntimeError(f"Error starting Divascript server: {self.diva_server.returncode}")
-
-		# TODO: Add more robust error reporting
-	
-	def __del__(self):
-		
-		#if self.isConnected():
-		#	self.__disconnect()
-
-		print("In __del__()")
-		# TODO: Hangs; In text mode: NoneType has no attribute utf8_mode
-		diva_client = subprocess.run(
-			[str(self.divascript_exec), "stopserver"],
-			capture_output = True
-		)
-
-		print(f"Listener still running? {self.isConnected()}")
-
-
 	
 	def __connect(self, manager_ip, manager_port):
 		
@@ -73,13 +31,21 @@ class Diva:
 			capture_output = True
 		)
 
-		print("In __connect()")
-		print(f"client.returncode: {diva_client.returncode}")
-		print(f"client.stdout: {diva_client.stdout}")
-		print(f"client.stderr: {diva_client.stderr}")
+		if diva_client.returncode == self.__class__.DivaCodes.OK:
+			print(f"Successfully connected to {manager_ip}:{manager_port}")
+			
+		elif diva_client.returncode == self.__class__.DivaCodes.ALREADY_CONNECTED:
+			print(f"Already connected: {diva_client.stdout}")
+		
+		elif diva_client.returncode == self.__class__.DivaCodes.LISTENER_NOT_FOUND:
+			raise RuntimeError(f"Divascript Listener service is not running")
+
+		elif diva_client.returncode == self.__class__.DivaCodes.MANAGER_NOT_FOUND:
+			raise ConnectionError(f"Diva Manager not found at {manager_ip}:{manager_port}")
 
 
 	# TODO: Hangs and gives weird errors
+	# Should this even be implemented?
 	def __disconnect(self):
 		 
 		diva_client = subprocess.run(
@@ -91,12 +57,6 @@ class Diva:
 		print(f"client.returncode: {diva_client.returncode}")
 		print(f"client.stdout: {diva_client.stdout}")
 		print(f"client.stderr: {diva_client.stderr}")
-
-
-	# TODO: Need to differentiate between listener running/notrunning and listener connected/disconnected to manager
-	def isConnected(self):
-		return self.diva_server.poll() is None
-
 
 	def restoreObject(self, object_name, category, destination=None, path=None):
 		
@@ -133,7 +93,7 @@ class Diva:
 		# Check for tapes belonging to category
 		pass
 
-	def getStatus(self, job_id):
+	def getJobStatus(self, job_id):
 
 		diva_client = subprocess.run([
 			str(self.divascript_exec), "reqinfo",
