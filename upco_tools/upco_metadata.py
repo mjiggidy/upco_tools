@@ -2,7 +2,7 @@
 # Parse embedded metadata from media files, such as tape name, timecode, and framerate
 # By Michael Jordan <michael.jordan@nbcuni.com>
 
-from upco_tools import upco_timecode
+from . import upco_timecode
 import subprocess, json, pathlib
 
 # On import, find ffprobe
