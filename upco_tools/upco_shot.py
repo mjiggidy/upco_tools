@@ -1,5 +1,5 @@
-import pathlib, enum
-import upco_timecode
+import pathlib, enum, re
+from . import upco_timecode
 
 class Shot:
 
@@ -7,6 +7,22 @@ class Shot:
 		TAPE, FILE = ("Tape","File")
 
 	SPECIAL_COLUMNS = ("Tape","Source File Name","Start","End","Duration")
+
+	NAMING_PATTERNS = (re.compile(x, re.I) for x in (
+		r"(?P<camroll>[a-z][0-9]{3})(?P<clipindex>c[0-9]{3})_(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})_(?P<camindex>[a-z])(?P<camid>[a-z0-9]{3})",	# Arri
+		r"(?P<camroll>[a-z][0-9]{3})_(?P<clipindex>[c,l,r][0-9]{3})_(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<camid>[a-z0-9]{2})",								# Redcode/Venice
+		r"(?P<camroll>[a-z][0-9]{3})(?P<clipindex>[c,l,r][0-9]{3})_(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<camid>[a-z0-9]{2})",				# Sony Raw
+		r"(?P<camroll>[a-z][0-9]{3})_(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<hour>[0-9]{2})(?P<minute>[0-9]{2})_(?P<clipindex>C[0-9]{3})",						# Black Magic Cinema Camera
+		r"(?P<camroll>[A-Z]{1,3}\d{3})_S\d{3}_S\d{3}_(?P<clipindex>T\d{3})",	# Drone/Helicopter
+		r"(?P<camroll>[A-Z]\d{3})(?P<clipindex>(G[A-Z]\d{3,})",					# GoPro Footage (Nobody)
+		r"(?P<camroll>[A-Z]\d{3})_(?P<clipindex>P\d{3,})",						# Panasonic Lumix (Nobody)
+		r"IMG_(?P<clipindex>[0-9]+)",											# iPhone/DSLR
+		r"DJI_(?P<clipindex>[0-9]+)",											# DJI Drones
+		r"MVI_(?P<clipindex>[0-9]+)",											# Consumer cameras
+		r"(?P<labroll>CA35_\d{3})",												# 35mm Labroll (Company 3 UK)
+		r"(?P<labroll>[A-Z]\d{3})_DPX",											# 35mm Labroll (Generic)
+		r"(?P<labroll>LR\d{8})"													# 35mm Labroll (Efilm)
+	))
 		
 	def __init__(self, shot, tc_start, tc_duration=None, tc_end=None, metadata=None, media=Media.TAPE, frm_rate=24000/1001):
 		
