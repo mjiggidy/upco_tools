@@ -6,7 +6,7 @@ class DivaCodes(enum.IntEnum):
 	ALREADY_CONNECTED = 1006
 	OBJECT_NOT_FOUND  = 1009
 	DESTINATION_NOT_FOUND = 1018
-	LISTENER_NOT_FOUND = 4294967295
+	LISTENER_NOT_FOUND = 4294967295 # 32-bit unsigned int max value
 
 class Diva:
 
