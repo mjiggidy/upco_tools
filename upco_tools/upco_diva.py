@@ -10,14 +10,15 @@ class DivaCodes(enum.IntEnum):
 
 class Diva:
 
-	def __init__(self, manager_ip, manager_port):
+	def __init__(self, manager_ip, manager_port, divascript_path=pathlib.Path(__file__).parent/"bin"/"win32"/"divascript.exe"):
 		
 		self.man_ip = manager_ip
 		self.man_port = manager_port
-		self.divascript_exec = pathlib.Path(__file__).parent/"bin"/"win32"/"divascript.exe"
 
-		if not self.divascript_exec.is_file():
-			raise RuntimeError(f"Cannot find divascript at {self.divascript_exec}")
+		if not pathlib.Path(divascript_path).is_file():
+			raise RuntimeError(f"Cannot find divascript at {divascript_path}")
+		else:
+			self.divascript_exec = pathlib.Path(divascript_path)
 
 		self.__connect(manager_ip, manager_port)
 	
