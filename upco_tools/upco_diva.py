@@ -1,12 +1,12 @@
 import subprocess, pathlib, enum
 
 class DivaCodes(enum.IntEnum):
-	OK = 0								# Success
-	MANAGER_NOT_FOUND 		= 1003		# No manager at provided IP/Port
-	ALREADY_CONNECTED		= 1006		# Listener is already connected
-	INVALID_PARAMETER		= 1008		# Example: Invalid character in object name
-	OBJECT_NOT_FOUND		= 1009		# Object not found in given category (could also mean invalid category)
-	DESTINATION_NOT_FOUND	= 1018		# Invalid src/destination
+	OK = 0								 # Success
+	MANAGER_NOT_FOUND 		= 1003		 # No manager at provided IP/Port
+	ALREADY_CONNECTED		= 1006		 # Listener is already connected
+	INVALID_PARAMETER		= 1008		 # Example: Invalid character in object name
+	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
+	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
 	LISTENER_NOT_FOUND		= 4294967295 #32-bit unsigned int max value, probably meant to be -1
 
 class Diva:
