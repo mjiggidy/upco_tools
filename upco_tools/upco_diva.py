@@ -7,7 +7,7 @@ class DivaCodes(enum.IntEnum):
 	INVALID_PARAMETER		= 1008		 # Example: Invalid character in object name
 	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
-	LISTENER_NOT_FOUND		= 4294967295 #32-bit unsigned int max value, probably meant to be -1
+	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class Diva:
 
