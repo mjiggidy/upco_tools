@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
 	long_description = fh.read()
 
 setuptools.setup(
-	name="upco_tools_mjiggidy", # Replace with your own username
+	name="upco_tools", # Replace with your own username
 	version="0.0.1",
 	author="Michael J. Jordan",
 	author_email="michael@glowingpixel.com",
