@@ -7,6 +7,7 @@ class DivaCodes(enum.IntEnum):
 	INVALID_PARAMETER		= 1008		 # Example: Invalid character in object name
 	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
+	OBJECT_OFFLINE			= 1023		 # Tape not loaded for object
 	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class Diva:
@@ -119,9 +120,37 @@ class Diva:
 			"-req", str(job_id)],
 			text = True,
 			capture_output = True
-		)		
+		)
+
+		# stdout returns "Migrating" or "Completed" with status 0
 
 		print("In getStatus()")
+		print(f"client.returncode: {diva_client.returncode}")
+		print(f"client.stdout: {diva_client.stdout}")
+		print(f"client.stderr: {diva_client.stderr}")
+
+	def getObjectInfo(self, object_name, category):
+		diva_client = subprocess.run([
+			str(self.divascript_exec), "objinfo",
+			"-obj", str(object_name),
+			"-cat", str(category)],
+			text = True,
+			capture_output = True
+		)
+		
+		if diva_client.returncode == DivaCodes.OK:
+			print(diva_client.stdout.split('\t'))
+		
+		elif diva_client.returncode == DivaCodes.OBJECT_NOT_FOUND:
+			raise FileNotFoundError(f"Object {object_name} not found in category {category}")
+
+		elif diva_client.returncode in (code for code in DivaCodes):
+			raise RuntimeError(f"Error code {DivaCodes(diva_client.returncode).name}: {diva_client.stdout.strip()}")
+
+		else:
+			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
+
+		print("In getObjectInfo()")
 		print(f"client.returncode: {diva_client.returncode}")
 		print(f"client.stdout: {diva_client.stdout}")
 		print(f"client.stderr: {diva_client.stderr}")
