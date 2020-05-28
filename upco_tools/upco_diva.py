@@ -6,9 +6,19 @@ class DivaCodes(enum.IntEnum):
 	ALREADY_CONNECTED		= 1006		 # Listener is already connected
 	INVALID_PARAMETER		= 1008		 # Example: Invalid character in object name
 	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
+	REQUEST_NOT_FOUND		= 1011		 # Invalid job ID
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
 	OBJECT_OFFLINE			= 1023		 # Tape not loaded for object
 	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
+
+class DivaStatus(enum.Enum):
+	IN_PROGRESS	= "Migrating"	# Possibly only used for Restore operations? Need to investigate during Archive operation
+	COMPLETED	= "Completed"
+	ABORTED		= "Aborted"
+
+
+class TapeNotLoadedError(FileNotFoundError):
+	pass
 
 class Diva:
 
@@ -92,6 +102,16 @@ class Diva:
 		elif diva_client.returncode == DivaCodes.OBJECT_NOT_FOUND:
 			raise FileNotFoundError(f"Object {object_name} not found in category {category}")
 
+		# If tape or disk is offline
+		elif diva_client.returncode == DivaCodes.OBJECT_OFFLINE:
+			# Look up tape info.  Hopefully the tape is known but just not loaded
+			# Or if there's a problem looking up the object info, just let the exception pass through
+			info = self.getObjectInfo(object_name, category)
+			if info.get("Volume") and info.get("IsInserted") is False:
+				raise TapeNotLoadedError(f"Tape {info.get('Volume')} not loaded for object {object_name} in category {category}")
+			else:
+				raise RuntimeError(f"{object_name} in category {category} does not appear to be on tape, or tape not loaded.")
+
 		# If destination is invalid
 		elif diva_client.returncode == DivaCodes.DESTINATION_NOT_FOUND:
 			raise NotADirectoryError(f"{destination} is not a valid restore destination")
@@ -103,9 +123,6 @@ class Diva:
 		else:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
 
-
-		
-		# TODO: Add Errors
 
 	def archiveObject(self, path_source, category):
 		# Validate category
@@ -123,6 +140,20 @@ class Diva:
 		)
 
 		# stdout returns "Migrating" or "Completed" with status 0
+		if diva_client.returncode == DivaCodes.OK:
+			try:
+				return DivaStatus(diva_client.stdout.strip())
+			except:
+				return diva_client.stdout.strip()
+		
+		elif diva_client.returncode == DivaCodes.REQUEST_NOT_FOUND:
+			raise RuntimeError(f"Job ID {job_id} was not found")
+		
+		elif diva_client.returncode in (code for code in DivaCodes):
+			raise RuntimeError(f"Error code {DivaCodes(diva_client.returncode).name}: {diva_client.stdout.strip()}")
+
+		else:
+			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")		
 
 		print("In getStatus()")
 		print(f"client.returncode: {diva_client.returncode}")
@@ -165,8 +196,3 @@ class Diva:
 
 		else:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
-
-		print("In getObjectInfo()")
-		print(f"client.returncode: {diva_client.returncode}")
-		print(f"client.stdout: {diva_client.stdout}")
-		print(f"client.stderr: {diva_client.stderr}")
