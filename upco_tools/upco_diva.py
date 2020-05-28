@@ -139,8 +139,24 @@ class Diva:
 		)
 		
 		if diva_client.returncode == DivaCodes.OK:
-			print(diva_client.stdout.split('\t'))
+			
+			# TODO: Do something more clever than a dict
+			# Something that preserves the tree structure from stdout
+			parsed = {}
+			for line in diva_client.stdout.strip().splitlines():	
+				# Skip empty lines
+				if len(line.strip()) == 0:
+					continue
+				
+				key, val = [x.strip() for x in line.split(':')]
+				if not val: continue
+				elif val.isnumeric(): val = int(val)
+				elif val in ('Y','N'): val = True if val == 'Y' else False
+				parsed.update({key:val})
+
+			return parsed
 		
+
 		elif diva_client.returncode == DivaCodes.OBJECT_NOT_FOUND:
 			raise FileNotFoundError(f"Object {object_name} not found in category {category}")
 

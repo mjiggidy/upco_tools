@@ -134,3 +134,5 @@ dmypy.json
 .pyre/
 upco_filesequence.py
 cc_match_v2.zip
+.vscode/settings.json
+.gitignore
