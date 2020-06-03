@@ -1,6 +1,11 @@
 import subprocess, pathlib, enum, datetime
 
 class DivaCodes(enum.IntEnum):
+	"""Diva status codes based on executable return values
+
+	Arguments:
+		enum {int} -- Return code from divascript executable
+	"""
 	OK = 0								 # Success
 	MANAGER_NOT_FOUND 		= 1003		 # No manager at provided IP/Port
 	ALREADY_CONNECTED		= 1006		 # Listener is already connected
@@ -12,17 +17,40 @@ class DivaCodes(enum.IntEnum):
 	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class DivaJobStatus(enum.Enum):
+	"""Known job statuses based on outout from `reqinfo`
+
+	Arguments:
+		enum {str} -- Job status returned from `reqinfo`
+	"""
 	IN_PROGRESS	= "Migrating"	# Possibly only used for Restore operations? Need to investigate during Archive operation
 	COMPLETED	= "Completed"
 	ABORTED		= "Aborted"
 
 
 class TapeNotLoadedError(FileNotFoundError):
+	"""Tape not loaded for request"""
 	pass
 
 class Diva:
+	"""Communicate with DivArchive Manager
+
+	Issue commands and query job/object info over Divascript.
+	Divascript Listener must be running locally on the client.
+	"""
 
 	def __init__(self, manager_ip, manager_port, divascript_path=pathlib.Path(__file__).parent/"bin"/"win32"/"divascript.exe"):
+		"""Establish a connection to DivArchive Manager
+
+		Arguments:
+			manager_ip {str} -- IP address of Diva Manager
+			manager_port {int|str} -- Listening port on Diva Manager
+
+		Keyword Arguments:
+			divascript_path {str|pathlib} -- Path to Divascript executable (default: "bin/win32/divascript.exe"})
+
+		Raises:
+			RuntimeError: Divascript was unable to connect to DivArchive Manager
+		"""
 		
 		self.man_ip = manager_ip
 		self.man_port = manager_port
@@ -73,6 +101,27 @@ class Diva:
 		print(f"client.stderr: {diva_client.stderr}")
 
 	def restoreObject(self, object_name, category, destination=None, path=None):
+		"""Restore an object from Diva
+
+		Arguments:
+			object_name {str} -- Object name on Diva
+			category {str} -- Diva category of object
+
+		Keyword Arguments:
+			destination {str} -- Diva restore destination (ie. "Archive-DataIO") (default: {None})
+			path {str|pathlib} -- Custom restore path (experimental) (default: {None})
+
+		Raises:
+			ValueError: Invalid Diva object
+			RuntimeWarning: Successful restore but unrecognized job ID returned
+			FileNotFoundError: Diva object does not exist in category
+			TapeNotLoadedError: Aequired tape is not inserted
+			NotADirectoryError: Invalid restore destination specified
+			RuntimeError: Critical errors during restore
+
+		Returns:
+			jobid {int} -- Job ID of successful restore request
+		"""
 		
 		if not any((destination, path)):
 			raise ValueError("A valid restore destination or path is required")
@@ -107,8 +156,8 @@ class Diva:
 			# Look up tape info.  Hopefully the tape is known but just not loaded
 			# Or if there's a problem looking up the object info, just let the exception pass through
 			info = self.getObjectInfo(object_name, category)
-			if not info.isOnline():
-				offline = [tape.get("name") for tape in media.tapes for media in info.media]
+			if not info.online:
+				offline = [tape.get("name") for tape in info.tapes if tape.get("inserted") is False]
 				raise TapeNotLoadedError(f"Required tape(s) {', '.join(offline)} not loaded for object {object_name} in category {category}")
 			else:
 				raise RuntimeError(f"{object_name} in category {category} does not appear to be on tape, or tape not loaded.")
@@ -132,6 +181,18 @@ class Diva:
 		pass
 
 	def getJobStatus(self, job_id):
+		"""Query job status by job ID
+
+		Arguments:
+			job_id {int|str} -- Diva Job ID
+
+		Raises:
+			ValueError: Job ID not found or invalid
+			RuntimeError: Critical errors during job query
+
+		Returns:
+			KnownJobStatus {DivaJobStatus} -- Current status of job
+		"""
 
 		diva_client = subprocess.run([
 			str(self.divascript_exec), "reqinfo",
@@ -148,7 +209,7 @@ class Diva:
 				return diva_client.stdout.strip()
 		
 		elif diva_client.returncode == DivaCodes.REQUEST_NOT_FOUND:
-			raise RuntimeError(f"Job ID {job_id} was not found")
+			raise ValueError(f"Job ID {job_id} was not found")
 		
 		elif diva_client.returncode in (code for code in DivaCodes):
 			raise RuntimeError(f"Error code {DivaCodes(diva_client.returncode).name}: {diva_client.stdout.strip()}")
@@ -162,6 +223,19 @@ class Diva:
 		print(f"client.stderr: {diva_client.stderr}")
 
 	def getObjectInfo(self, object_name, category):
+		"""Get archive info for Diva object
+
+		Arguments:
+			object_name {str} -- Diva object name
+			category {[type]} -- Diva category of object
+
+		Raises:
+			FileNotFoundError: Object name not found in category
+			RuntimeError: Critical errors during info query
+
+		Returns:
+			object {DivaObject} -- Diva object info parsed as DivaObject
+		"""
 		diva_client = subprocess.run([
 			str(self.divascript_exec), "objinfo",
 			"-obj", str(object_name),
@@ -171,7 +245,7 @@ class Diva:
 		)
 		
 		if diva_client.returncode == DivaCodes.OK:
-			return DivaObject(diva_client.stdout.strip())
+			return _DivaObject(diva_client.stdout.strip())
 		
 		elif diva_client.returncode == DivaCodes.OBJECT_NOT_FOUND:
 			raise FileNotFoundError(f"Object {object_name} not found in category {category}")
@@ -182,7 +256,7 @@ class Diva:
 		else:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
 
-class DivaObject:
+class _DivaObject:
 
 	def __init__(self, infostring):
 
@@ -194,72 +268,94 @@ class DivaObject:
 		self.archive_date = str()
 		self.size = int()
 		self.files = []
-		self.media = []
+		self.tapes = []
+		self.disks = []
 
-		# Parse text returned from `objinfo`
-		for line in self.infostring.splitlines():
+		# Parse text returned from `objinfo` command
+		for num, line in enumerate(self.infostring.splitlines()):
 			# Skip empty lines
 			if len(line.strip()) == 0:
 				continue
 			
-			key, val = [x.strip() for x in line.split(':')]
+			key, val = (x.strip() for x in line.split(':'))
 			if not val: continue
 			
+			# Object name
 			if key.lower() == "name":
 				if len(self.name) and self.name != val:
-					raise ValueError(f"Already encountered name: {self.name} (Now found {val})")
+					raise ValueError(f"Already encountered name: {self.name} (Now found {val} on line {num})")
 				self.name = val
 			
+			# Object category
 			elif key.lower() == "category":
 				if len(self.category) and self.category != val:
-					raise ValueError(f"Already encountered category: {self.category} (Now found {val})")
+					raise ValueError(f"Already encountered category: {self.category} (Now found {val} on line {num})")
 				self.category = val
 			
+			# Object size in bytes
 			elif key.lower() == "size":
 				if self.size and self.size != val:
-					raise ValueError(f"Already encountered size: {self.size} (Now found {val})")
+					raise ValueError(f"Already encountered size: {self.size} (Now found {val} on line {num})")
 				self.size = int(val)
 			
+			# Object archived date
 			elif key.lower() == "archivingdate":
 				date = datetime.datetime.fromtimestamp(int(val))
 				if self.archive_date and self.archive_date != date:
-					raise ValueError(f"Already encountered archive date: {self.archive_date} (Now found {date})")
+					raise ValueError(f"Already encountered archive date: {self.archive_date} (Now found {date} on line {num})")
 				self.archive_date = date
 			
+			# Array of filenames for the object
 			elif key.lower() == "file":
 				if val in self.files:
 					continue
 				else:
 					self.files.append({"filename":val})
 			
+			# Add new tape if new media instance ID (TODO: Think this through; media instance can refer to multiple tapes?)
 			elif key.lower() == "mediainstanceid":
-				self.media.append({"tapes":[]})
-			
-			elif key.lower() == "group":
-				if not len(self.media) or (len(self.media[-1].get("group")) and self.media[1].get("group") != val):
-					raise ValueError(f"Encountered tape group {val} at an inopportune time")
-				self.media[-1].update({"group":val})
-			
-			# TODO: Look at this closer when I'm not sleepy
-			elif key.lower() == "isinserted":
-				if not len(self.media):
-					continue
-				elif self.media[-1].get("inserted") is None:
-					self.media[-1].update({"inserted": True if val.lower == 'y' else 'n'})
-				elif len(self.media[-1].tapes) and self.media[-1].tapes[-1].get("inserted") is None:
-					self.media[-1].tapes[-1].update({"inserted": True if val.lower == 'y' else 'n'})
-				else:
-					raise ValueError(f"Encountered 'IsInserted' {val} at an inopportune time")
+				self.tapes.append({})
 
+			# Tape group
+			elif key.lower() == "group":
+				if not len(self.tapes) and self.tapes[-1].get("group") != val:
+					raise ValueError(f"Encountered tape group {val} at an inopportune time")
+				self.tapes[-1].update({"group":val})
+			
+			# Tape name
 			elif key.lower() == "volume":
-				if not len(self.media) or not len(self.media[-1].tapes):
-					raise ValueError(f"Encountered volume ID {val} at an inpoortune time")
-				elif val not in self.media[-1].tapes:
-					self.media[-1].tapes.append({"name":val})
-	
-	def isOnline(self):
-		if not len(self.media):
-			return ValueError(f"No media found")
+				if not len(self.tapes):
+					raise ValueError(f"Encountered volume ID {val} at an inopportune time")
+				
+				# If we've hit an additional volume, append it and copy the group from the first one
+				elif self.tapes[-1].get("name") is not None:
+					self.tapes.append({"name": val, "group":self.tapes[-1].get("group")})
+				
+				# If we're working on our first tape, update it
+				self.tapes[-1].update({"name":val})
+
+			# Is tape inserted
+			elif key.lower() == "isinserted":
+				if not len(self.tapes) or self.tapes[-1].get("name") is None:
+					continue
+				elif self.tapes[-1].get("inserted") is not None:
+					raise ValueError(f"Encountered tape inserted boolean at an inopportune time")
+
+				self.tapes[-1].update({"inserted": True if val.lower() == 'y' else False})
+
+			# TODO: Investigate instances on local cache
+
+		# With the info string parsed, make sure we have all expected values
+		if any(val is None for val in (self.name, self.category, self.size, self.archive_date)):
+			raise RuntimeError(f"Incomplete information provided for object")
 		
+		if not any(len(x) for x in (self.tapes, self.disks)):
+			raise RuntimeError(f"No tape or media information provided for object")
+		
+		elif not all(tape.get(x) is not None for x in ("name","group","inserted") for tape in self.tapes):
+			raise RuntimeError("Incomplete tape info for object")
+		
+	@property
+	def online(self):
 		# Return tape list for now; investigate disks later
-		return all(tape.get("inserted") for tape in media for media in self.media)
+		return all(tape.get("inserted") for tape in self.tapes)
