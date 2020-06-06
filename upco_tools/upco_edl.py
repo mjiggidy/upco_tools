@@ -1,5 +1,5 @@
 import pathlib, re
-import upco_timecode
+from . import upco_timecode
 
 
 class Edl:

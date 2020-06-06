@@ -13,5 +13,6 @@ upco_metadata.py  Weird wrapper for ffprobe which I intend to improve upon
 
 #### Very incomplete:
 ```
+upco_diva.py      Wrapper for Divascript win32 executable
 upco_edl.py       EDL reading and writing; currently incomplete
 ```
