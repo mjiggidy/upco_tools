@@ -99,7 +99,7 @@ class Timecode:
 		
 		# For now, only add common framerates.  Not sure how I want to handle conversions yet.
 		if self.getFramerate() != tc_comp.getFramerate():
-			raise Exception("Cannot operate on timecodes with mismatched framerates ({} fps vs {} fps)".format(self.getFramerate(), tc_add.getFramerate()))
+			raise Exception("Cannot operate on timecodes with mismatched framerates ({} fps vs {} fps)".format(self.getFramerate(), tc_comp.getFramerate()))
 		
 		return tc_comp
 	
@@ -108,10 +108,10 @@ class Timecode:
 	# METHOD: Set framerate and "tc framerate" (rounded up from fractional framerate)
 	def setFramerate(self, framerate):
 		try:
-			assert framerate > 0
 			self.framerate = float(framerate)
 			self.framerate_tc = int(math.ceil(self.framerate))
-		except Exception as e: raise Exception("Invalid framerate input: {}".format(framerate))
+			if not self.framerate > 0: raise ValueError(f"Framerate must be greater than zero")
+		except Exception as e: raise Exception(f"Invalid framerate input: {framerate} {e}")
 	
 	def setFramecount(self, framecount):
 		try: self.framecount = int(round(framecount))

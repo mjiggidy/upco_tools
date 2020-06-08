@@ -66,9 +66,23 @@ class Shotlist:
 						shot_type = Shot.MediaType("File")
 					else:
 						raise ValueError(f"No Tape or Source File Name found for shot on line {line_num}")
-
+					
+					# Check for 24-hour rollover in tc_end if no tc duration
+					if not metadata.get("Duration"):
+						if not metadata.get("End"):
+							raise ValueError(f"No end timecode specified for shot on line {line_num}")
+						
+						try:
+							fps = ale_heading.get("FPS", 24000/1001)
+							metadata["Start"] = upco_timecode.Timecode(metadata.get("Start"), fps)
+							metadata["End"]   = upco_timecode.Timecode(metadata.get("End"), fps)
+							while metadata.get("End") < metadata.get("Start"):
+								metadata["End"] += upco_timecode.Timecode("24:00:00:00", fps)
+						except Exception as e:
+							raise ValueError(f"Invalid timecode for shot on line {line_num} ({e})")
+						
 					# Add shot to shotlist
-					shotlist.addShots(Shot(
+					shotlist.addShot(Shot(
 						shot_name,
 						tc_start    = metadata.get("Start"),
 						tc_duration = metadata.get("Duration"),
@@ -137,20 +151,12 @@ class Shotlist:
 		"""
 
 		self.shots = []
-		self.addShots(shotlist)
+		if shotlist: self.addShot(shotlist)
 
 
-	def addShots(self, shot):
+	def addShot(self, shot):
 
-		if isinstance(shot, Shot):
-			self.shots.append(shot)
-		
-		elif type(shot) is list:
-			if all(isinstance(s, Shot) for s in shot): self.shots.extend(shot)
-			else: raise ValueError(f"One or more list items are not Shot objects")
-		
-		else:
-			raise ValueError(f"Must be type Shot; got {type(shot)} instead")
+		self.shots.append(shot)
 		
 	
 	def getClips(self):
@@ -182,10 +188,14 @@ class Shotlist:
 		Returns:
 			iostream -- The stream that was being written
 		"""
-
 		used_columns = ["Name",sourcecol,"Start","Duration","End"]
-		used_columns.extend([col for col in shot.metadata.keys() for shot in self.shots if shot.metadata.get("col") or preserveEmptyColumns])
-		used_columns = set(used_columns)
+		meta_columns = set()
+		for shot in self.shots:
+			{meta_columns.add(col) for col in shot.metadata.keys() if shot.metadata.get(col) or preserveEmptyColumns}
+		
+		{meta_columns.discard(x) for x in used_columns}
+		
+		used_columns.extend(sorted(meta_columns))
 
 		if type(omitColumns) is list:
 			{used_columns.remove(x) for x in omitColumns if x in used_columns}
