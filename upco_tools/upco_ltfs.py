@@ -73,7 +73,7 @@ class Tape:
 		if not path_ltfsbin.exists(): raise Exception(f"LTFS binary not found at {path_ltfsbin}")
 		
 		self.ltfs_exec = subprocess.Popen([
-			str(path_ltfsbin), str(self.mount_point),					# ltfs.exe G:
+			str(path_ltfsbin), str(self.mount_point),		# ltfs.exe G:
 			"-o","devname={}".format(self.dev_name),		# machine name; ex TAPE0
 			"-o","ro",										# mount as read-only
 			"-o","eject",									# eject after process is terminated
@@ -186,7 +186,7 @@ class Tape:
 # CLASS: Shot =============================================================
 # A Shot object represents a full camera raw shot on a Tape
 # Not much going on here now, but I'll want to flesh this out in the future
-class Shot:
+class CameraRawPull:
 	class Type(enum.Enum):
 		DIR, FILE = ("Directory", "File")
 		
@@ -433,7 +433,7 @@ class Schema:
 						exit()
 					
 					
-					shot = Shot(pat.match(dirname).group(0))
+					shot = CameraRawPull(pat.match(dirname).group(0))
 					shot.setPath(basepath=pathlib.Path(path, dirname), type=Shot.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 					
 					shots.append(shot)
@@ -461,8 +461,8 @@ class Schema:
 							startblock = 0
 							bytecount = 0
 						
-						shot = Shot(match.group(0))
-						shot.setPath(basepath=pathlib.Path(path,dirname), type=Shot.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
+						shot = CameraRawPull(match.group(0))
+						shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
 						shots.append(shot)
 						break
 					
@@ -518,7 +518,7 @@ class Schema:
 				if bestmatch is not None and bestmatch.getSize() > size:
 					return bestmatch
 								
-				shot.setPath(basepath=pathlib.Path(path, dirname), type=Shot.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
+				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 				return shot
 			
 			# Otherwise, loop through each file in directory
@@ -545,7 +545,7 @@ class Schema:
 					if bestmatch is not None and bestmatch.getSize() > int(bytecount):
 						return bestmatch
 
-					shot.setPath(basepath=pathlib.Path(path,dirname), type=Shot.Type.FILE, filelist=[{"path": pathlib.Path(filename) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
+					shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filename) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
 					return shot
 			
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
@@ -644,7 +644,7 @@ class ShotDB:
 #				sys.stderr.write(f"No files found for shot {shot_name}\n")
 				continue
 
-			shot_found = Shot(shot_name)
+			shot_found = CameraRawPull(shot_name)
 			shot_found.setPath(size=shot_size, basepath=pathlib.Path(shot_basepath), tape=Tape(shot_tape_name, density=shot_tape_density), filelist=files)
 			results.append(shot_found)
 
