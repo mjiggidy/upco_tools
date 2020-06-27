@@ -1,11 +1,7 @@
 import subprocess, pathlib, enum, datetime
 
 class DivaCodes(enum.IntEnum):
-	"""Diva status codes based on executable return values
-
-	Arguments:
-		enum {int} -- Return code from divascript executable
-	"""
+	"""Diva status codes based on executable return values"""
 	OK = 0								 # Success
 	MANAGER_NOT_FOUND 		= 1003		 # No manager at provided IP/Port
 	ALREADY_CONNECTED		= 1006		 # Listener is already connected
@@ -17,11 +13,7 @@ class DivaCodes(enum.IntEnum):
 	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class DivaJobStatus(enum.Enum):
-	"""Known job statuses based on outout from `reqinfo`
-
-	Arguments:
-		enum {str} -- Job status returned from `reqinfo`
-	"""
+	"""Known job statuses based on outout from `reqinfo`"""
 	IN_PROGRESS	= "Migrating"	# Possibly only used for Restore operations? Need to investigate during Archive operation
 	COMPLETED	= "Completed"
 	ABORTED		= "Aborted"
@@ -257,6 +249,7 @@ class Diva:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
 
 class _DivaObject:
+	"""Archive information about a Diva object"""
 
 	def __init__(self, infostring):
 
@@ -343,7 +336,17 @@ class _DivaObject:
 
 				self.tapes[-1].update({"inserted": True if val.lower() == 'y' else False})
 
-			# TODO: Investigate instances on local cache
+			# Disk instances
+			elif key.lower() == "diskinstanceid":
+				if len(self.disks) and "name" not in self.disks[-1]:
+					raise ValueError("Encountered disk instance and inopportune time")
+				self.disks.append({})
+			
+			# Disk array
+			elif key.lower() == "array":
+				if not len(self.disks) or "name" in self.disks[-1]:
+					raise ValueError("Encountered disk array name at inopportune time")
+				self.disks[-1].update({"name":val})
 
 		# With the info string parsed, make sure we have all expected values
 		if any(val is None for val in (self.name, self.category, self.size, self.archive_date)):
@@ -357,5 +360,5 @@ class _DivaObject:
 		
 	@property
 	def online(self):
-		# Return tape list for now; investigate disks later
-		return all(tape.get("inserted") for tape in self.tapes)
+		"""Determine if the object can be restored without needing media loaded"""
+		return all(tape.get("inserted") for tape in self.tapes) or len(self.disks)
