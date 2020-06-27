@@ -167,18 +167,35 @@ class Diva:
 
 
 	def archiveObject(self, path_source, category, media_group):
-		# Validate category
-		# Check for duplicate object names
-		# Check for tapes belonging to category
+		"""Archive a file to Diva
+
+		The file provided must be on a network volume accessible to the Diva actors.
+		Currently, only single-file backups are supported.
+
+		Args:
+			path_source (str|pathlib.Path): Path to file to archive
+			category (str): Diva category for backup
+			media_group (str): Tape group for backup
+
+		Raises:
+			RuntimeWarning: Archive request appears to have been submitted successfully, but response was not understood
+			RuntimeError: Failed to submit archive request
+
+		Returns:
+			int: Diva archive request ID
+		"""
 
 		path_source = pathlib.PureWindowsPath(path_source)
+
+		# TODO: Determine server source automatically; fail if invalid source for Diva
+		server_source = "archive"
 
 		diva_client = subprocess.run([
 			str(self.divascript_exec), "archive",
 			"-obj", str(path_source.stem),
 			"-cat", str(category),
 			"-grp", str(media_group),
-			"-src", "archive",
+			"-src", str(server_source),
 			"-fpr", str(path_source.relative_to(path_source.drive).relative_to(path_source.root).parent),
 			"-filelist", str(path_source.name)
 			],
