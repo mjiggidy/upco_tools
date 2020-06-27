@@ -166,11 +166,42 @@ class Diva:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
 
 
-	def archiveObject(self, path_source, category):
+	def archiveObject(self, path_source, category, media_group):
 		# Validate category
 		# Check for duplicate object names
 		# Check for tapes belonging to category
-		pass
+
+		path_source = pathlib.PureWindowsPath(path_source)
+
+		diva_client = subprocess.run([
+			str(self.divascript_exec), "archive",
+			"-obj", str(path_source.stem),
+			"-cat", str(category),
+			"-grp", str(media_group),
+			"-src", "archive",
+			"-fpr", str(path_source.relative_to(path_source.drive).relative_to(path_source.root).parent),
+			"-filelist", str(path_source.name)
+			],
+			text = True,
+			capture_output = True
+		)
+		
+		# Evaluate return code
+		if diva_client.returncode == DivaCodes.OK:
+			# If all is good, set last_request_id and return job ID
+			if diva_client.stdout.strip().isnumeric():
+				self.last_request_id = int(diva_client.stdout)
+				return self.last_request_id
+			else:
+				raise RuntimeWarning(f"Diva returned OK, but no request ID in response: {diva_client.stdout}")
+		
+		# Catchall errors.  Mainly for debugging
+		elif diva_client.returncode in (code for code in DivaCodes):
+			raise RuntimeError(f"Error code {DivaCodes(diva_client.returncode).name}: {diva_client.stdout.strip()}")
+		
+		else:
+			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
+
 
 	def getJobStatus(self, job_id):
 		"""Query job status by job ID
