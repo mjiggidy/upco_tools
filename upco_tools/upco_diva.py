@@ -1,3 +1,7 @@
+# upco_diva
+# A python client for the DivArchive API
+# By Michael Jordan <michael@glowingpixel.com>
+
 import subprocess, pathlib, enum, datetime
 
 class DivaCodes(enum.IntEnum):
@@ -10,7 +14,7 @@ class DivaCodes(enum.IntEnum):
 	REQUEST_NOT_FOUND		= 1011		 # Invalid job ID
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
 	OBJECT_OFFLINE			= 1023		 # Tape not loaded for object
-	LISTENER_NOT_FOUND		= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
+	CRITICAL_ERROR			= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class DivaJobStatus(enum.Enum):
 	"""Known job statuses based on outout from `reqinfo`"""
@@ -71,7 +75,7 @@ class Diva:
 		elif diva_client.returncode == DivaCodes.ALREADY_CONNECTED:
 			print(f"Already connected: {diva_client.stdout}")
 		
-		elif diva_client.returncode == DivaCodes.LISTENER_NOT_FOUND:
+		elif diva_client.returncode == DivaCodes.CRITICAL_ERROR:
 			raise RuntimeError(f"Divascript Listener service is not running")
 
 		elif diva_client.returncode == DivaCodes.MANAGER_NOT_FOUND:
