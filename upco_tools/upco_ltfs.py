@@ -1,8 +1,9 @@
 # upco_ltfs.py from upco_tools
 # Library for managing LTFS tapes, and the shots on them
-# By Michael Jordan <michael.jordan@nbcuni.com>
+# By Michael Jordan <michael@glowingpixel.com>
 
 from xml.etree import cElementTree as ElementTree
+from . import upco_shot
 import enum, operator, subprocess, time, pathlib, sqlite3
 import signal
 
@@ -434,7 +435,7 @@ class Schema:
 					
 					
 					shot = CameraRawPull(pat.match(dirname).group(0))
-					shot.setPath(basepath=pathlib.Path(path, dirname), type=Shot.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
+					shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 					
 					shots.append(shot)
 					break
