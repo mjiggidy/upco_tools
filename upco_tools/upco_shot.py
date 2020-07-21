@@ -320,7 +320,7 @@ class Shot:
 		r"(?P<labroll>LR\d{8})"													# 35mm Labroll (Efilm)
 	))
 		
-	def __init__(self, shot, tc_start, tc_duration=None, tc_end=None, media=MediaType.TAPE, frm_rate=24000/1001):
+	def __init__(self, shot, tc_start, tc_duration=None, tc_end=None, media=MediaType.TAPE, frm_rate=24000/1001, metadata=None):
 		
 		self.shot       = str(shot)							# Shot name (ex A001C003_200711_R1CB)
 		self.frm_rate   = float(frm_rate)					# Video frame rate
@@ -336,7 +336,7 @@ class Shot:
 		else: raise ValueError("Either tc_duration or tc_end must be specified")
 
 		# Validate and add metadata
-		#if metadata: self.add_metadata(metadata)
+		if metadata is not None: self.addMetadata(metadata)
 	
 	# Timecode properties
 	@property
