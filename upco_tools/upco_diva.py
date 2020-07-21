@@ -299,6 +299,31 @@ class Diva:
 
 		else:
 			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
+	
+	def getObjectList(self, object_name, category="*", group="*"):
+		"""Query Diva for object list"""
+		
+		diva_client = subprocess.run([
+			str(self.divascript_exec), "objlist",
+			"-obj", str(object_name),
+			"-cat", str(category),
+			"-grp", str(group)],
+			text = True,
+			capture_output = True
+		)
+
+		if diva_client.returncode == DivaCodes.OK:
+			results = [x.split('@') for x in diva_client.stdout.strip().splitlines()]
+			return [self.getObjectInfo(x[0], x[1]) for x in results]
+
+		elif diva_client.returncode == DivaCodes.OBJECT_NOT_FOUND:
+			raise FileNotFoundError(f"Object {object_name} not found in category {category}")
+
+		elif diva_client.returncode in (code for code in DivaCodes):
+			raise RuntimeError(f"Error code {DivaCodes(diva_client.returncode).name}: {diva_client.stdout.strip()}")
+
+		else:
+			raise RuntimeError(f"Unknown error code {diva_client.returncode}: {diva_client.stdout.strip()}")
 
 class _DivaObject:
 	"""Archive information about a Diva object"""
