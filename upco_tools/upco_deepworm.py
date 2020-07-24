@@ -27,7 +27,7 @@ class DeepwormClient:
 		if not r.ok:
 			raise ConnectionError(f"({r.status_code}) Error connecting to API")
 
-		return list(r.json())
+		return [_Show(self, show) for show in r.json()]
 	
 	def getShotList(self, guid_show):
 		r = requests.get(f"{self.api_url}/shots/{guid_show}")
@@ -35,4 +35,18 @@ class DeepwormClient:
 		if r.status_code != 200:
 			raise FileNotFoundError(f"({r.status_code}) Invalid show guid: {guid_show}")
 
-		return (upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata"))) for shot in r.json())
+		shotlist = upco_shot.Shotlist()
+		for shot in r.json():
+			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("extended_info","{}"))))
+
+		return shotlist
+
+class _Show:
+
+	def __init__(self, client, show):
+		self.title = show.get("title")
+		self.guid  = show.get("guid_show")
+		self._client = client
+
+	def getShotList(self):
+		return self._client.getShotList(self.guid)
