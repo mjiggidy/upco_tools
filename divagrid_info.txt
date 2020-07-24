@@ -1,4 +1,4 @@
-Name: V69A_3_PT12_P06_P604
+Name: V69A_3_PT12
 Category: SomeShowDailies
 Size: 948878
 ArchivingDate: 1593033093
