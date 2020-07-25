@@ -220,13 +220,19 @@ class Shotlist:
 			iostream -- The stream that was being written
 		"""
 		used_columns = ["Name",sourcecol,"Start","Duration","End"]
-		meta_columns = set()
-		for shot in self.shots:
-			{meta_columns.add(col) for col in shot.metadata.keys() if shot.metadata.get(col) or preserveEmptyColumns}
+		meta_columns = []
 		
-		{meta_columns.discard(x) for x in used_columns}
+		# Build case-insensitive list of unique metadata columns from all shots
+		# Omit blank columns
+		# TODO: Find a more elegant way to do this
+		for shot in self.shots:
+			for col in shot.metadata.keys():
+				if col.lower() not in [x.lower() for x in meta_columns] and col.lower() not in [x.lower() for x in used_columns] and shot.metadata.get(col).strip() != "":
+					meta_columns.append(col)
 		
 		used_columns.extend(sorted(meta_columns))
+
+		#print(used_columns)
 
 		if type(omitColumns) is list:
 			{used_columns.remove(x) for x in omitColumns if x in used_columns}
@@ -243,10 +249,14 @@ class Shotlist:
 		print("", file=stream_output)
 
 		print("Data", file=stream_output)
+		
+		# TODO: Clean tabs or newlines from data
 		for shot in self.shots:
 			metadata = shot.metadata
 			metadata.update({sourcecol:shot.shot, "Start":shot.tc_start, "End":shot.tc_end, "Duration":shot.tc_duration})
-			print('\t'.join(str(metadata.get(col,"")) for col in used_columns), file=stream_output)
+			# Convert keys to lower case for case-insensitive column header matching
+			metadata = {x.lower(): metadata.get(x) for x in metadata.keys()}
+			print('\t'.join(str(metadata.get(col.lower(),"")) for col in used_columns), file=stream_output)
 		print("", file=stream_output)
 
 		return stream_output
