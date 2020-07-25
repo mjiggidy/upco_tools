@@ -29,6 +29,10 @@ class DeepwormClient:
 
 		return [_Show(self, show) for show in r.json()]
 	
+	def getShow(self, title=None, guid=None):
+		# TODO: Get show from name or GUID?
+		pass
+	
 	def getShotList(self, guid_show):
 		r = requests.get(f"{self.api_url}/shots/{guid_show}")
 
