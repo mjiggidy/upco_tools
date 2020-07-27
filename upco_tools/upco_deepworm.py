@@ -29,9 +29,18 @@ class DeepwormClient:
 
 		return [_Show(self, show) for show in r.json()]
 	
-	def getShow(self, title=None, guid=None):
+	def getShow(self, title=None, guid_show=None):
 		# TODO: Get show from name or GUID?
-		pass
+		if guid_show is None:
+			return []
+
+		r = requests.get(f"{self.api_url}/shows/{guid_show}")
+
+		if r.status_code != 200 or not len(r.json()):
+			raise FileNotFoundError(f"({r.status_code}) Invalid show guid: {guid_show}")
+		
+		# TODO: wat do if more than one show is returned?
+		return _Show(self, r.json()[0])
 	
 	def getShotList(self, guid_show):
 		r = requests.get(f"{self.api_url}/shots/{guid_show}")
@@ -41,7 +50,7 @@ class DeepwormClient:
 
 		shotlist = upco_shot.Shotlist()
 		for shot in r.json():
-			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("extended_info","{}"))))
+			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata"))))
 
 		return shotlist
 
