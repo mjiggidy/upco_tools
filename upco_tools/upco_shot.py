@@ -221,6 +221,7 @@ class Shotlist:
 		"""
 		used_columns = ["Name",sourcecol,"Start","Duration","End"]
 		meta_columns = []
+		pat_invalid  = re.compile("[\t\r\n]+")
 		
 		# Build case-insensitive list of unique metadata columns from all shots
 		# Omit blank columns
@@ -252,11 +253,24 @@ class Shotlist:
 		
 		# TODO: Clean tabs or newlines from data
 		for shot in self.shots:
+		
+			# TODO: Deep copy metadata dict? Or handle in shot.getMetadata()?
 			metadata = shot.metadata
 			metadata.update({sourcecol:shot.shot, "Start":shot.tc_start, "End":shot.tc_end, "Duration":shot.tc_duration})
+			
+			# Deal with special columns
+			if "Name" in used_columns:									# Name is currently a default column but could be specified as an omitted_column
+				metadata["Name"] = metadata.get("Name", shot.shot)		# Name gets tape name if none is specified
+			
+			if "Tracks" in used_columns:
+				metadata["Tracks"] = metadata.get("Tracks","VA1A2")	# Tracks get default V1/A1A2 if none is specified
+
 			# Convert keys to lower case for case-insensitive column header matching
 			metadata = {x.lower(): metadata.get(x) for x in metadata.keys()}
-			print('\t'.join(str(metadata.get(col.lower(),"")) for col in used_columns), file=stream_output)
+			
+			# Write to file
+			print('\t'.join(pat_invalid.sub("  ", str(metadata.get(col.lower(),""))) for col in used_columns), file=stream_output)
+		
 		print("", file=stream_output)
 
 		return stream_output
@@ -297,7 +311,7 @@ class Shotlist:
 
 		path_output = pathlib.Path(path_output)
 		
-		with path_output.open('w') as file_output:
+		with path_output.open('w', encoding="utf-8") as file_output:
 			self._buildAle(file_output, preserveEmptyColumns, omitColumns)
 
 		return path_output
