@@ -236,6 +236,7 @@ class Shotlist:
 		#print(used_columns)
 
 		if type(omitColumns) is list:
+			omitColumns.append("Tracks") # TODO: Temp fix; figure out what's up with the Tracks thing
 			{used_columns.remove(x) for x in omitColumns if x in used_columns}
 		elif omitColumns:
 			raise ValueError("omitColumns must be a list")
