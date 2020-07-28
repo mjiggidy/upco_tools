@@ -2,7 +2,7 @@
 # Python client for Deepworm API
 # Rudimentary for now
 
-from . import upco_shot
+from . import upco_shot, upco_timecode
 import requests, json
 
 class DeepwormClient:
@@ -125,8 +125,24 @@ class DeepwormClient:
 		shot = r.json()
 		return upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
 
-	def findShot(self, shot:upco_shot.Shot=None, metadata:dict=None, subclip:bool=False):
-		r = requests.post(f"{self.api_url}/shots/", data=metadata)
+	def findShot(self, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False):
+		
+		metadata = {}
+
+		if shot is not None:
+			metadata["shot"] = str(shot)
+		if tc_start is not None:
+			metadata["frm_start"] = upco_timecode.Timecode(tc_start, fps).framecount
+		if tc_duration is not None:
+			metadata["frm_duration"] = upco_timecode.Timecode(tc_duration, fps).framecount
+		if tc_end is not None:
+			metadata["frm_end"] = upco_timecode.Timecode(tc_end, fps).framecount
+		search = {
+			"metadata": metadata,
+			"subclip" : subclip
+		}
+		
+		r = requests.post(f"{self.api_url}/shots/", json=search)
 
 		if not r.ok:
 			raise ValueError(f"({r.status_code}) Invalid search: {metadata}")
