@@ -240,9 +240,6 @@ class Shotlist:
 		elif omitColumns:
 			raise ValueError("omitColumns must be a list")
 
-		if "Tracks" in used_columns:
-			used_columns.remove("Tracks")
-
 		# Build heading
 		print("Heading", file=stream_output)
 		{print(f"{key}\t{heading.get(key,'')}", file=stream_output) for key in heading.keys()}
@@ -266,6 +263,7 @@ class Shotlist:
 				metadata["Name"] = metadata.get("Name", shot.shot)		# Name gets tape name if none is specified
 			
 			if "Tracks" in used_columns:
+				#print("Adding tracks to ", shot.shot)
 				metadata["Tracks"] = metadata.get("Tracks","VA1A2")	# Tracks get default V1/A1A2 if none is specified
 
 			# Convert keys to lower case for case-insensitive column header matching

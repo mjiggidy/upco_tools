@@ -6,6 +6,9 @@ from . import upco_shot
 import requests, json
 
 class DeepwormClient:
+	"""
+	Python client for interacting with the Deepworm dailies API.
+	"""
 
 	def __init__(self, host="127.0.0.1", port="5000", version="v1"):
 		"""Construct a connection to the Deepworm REST API.
@@ -20,8 +23,17 @@ class DeepwormClient:
 		# TODO: Check connection, throw exceptions
 
 
-	def getShowList(self):
-		""" Get a list of shows and GUIDs """
+	# Show-based operations
+	
+	def getShowList(self)->list:
+		"""Request a list of all shows in Deepworm
+
+		Raises:
+			ConnectionError: Problem communicating with the API
+
+		Returns:
+			list: A list of _Show objects
+		"""
 		r = requests.get(f"{self.api_url}/shows")
 		
 		if not r.ok:
@@ -29,30 +41,99 @@ class DeepwormClient:
 
 		return [_Show(self, show) for show in r.json()]
 	
-	def getShow(self, title=None, guid_show=None):
-		# TODO: Get show from name or GUID?
-		if guid_show is None:
-			return []
+	def getShow(self, guid:str=None, title:str=None):
+		"""Request a show based on its guid or title
 
-		r = requests.get(f"{self.api_url}/shows/{guid_show}")
+		Args must be one of:
+			guid (str): Show GUID (ex: "9779e860-533d-11ea-b1c6-20677cdf2060")
+			title (str): Show title (case-insensitive)
 
-		if r.status_code != 200 or not len(r.json()):
-			raise FileNotFoundError(f"({r.status_code}) Invalid show guid: {guid_show}")
+		Raises:
+			ValueError: No GUID or title specified
+			RuntimeError: Unexpected problem with API request
+			FileNotFoundError: No shows match the criteria
+
+		Returns:
+			_Show: Show object for matched show
+		"""
+
+		if not any((title, guid)):
+			raise ValueError("No GUID or title specified.")
+
+		r = requests.post(f"{self.api_url}/shows/", data={"title":title, "guid_show":guid})
+
+		if not r.ok:
+			raise RuntimeError(f"({r.status_code}) Problem querying shows for {guid or title}")
+		elif not r.json():
+			raise FileNotFoundError(f"No shows match {guid or title}")
 		
-		# TODO: wat do if more than one show is returned?
-		return _Show(self, r.json()[0])
+		return _Show(self, r.json())
 	
-	def getShotList(self, guid_show):
-		r = requests.get(f"{self.api_url}/shots/{guid_show}")
+	def searchShows(self, title_search:str)->list:
+		"""Search for shows which contain a specified string in their titles
 
-		if r.status_code != 200:
-			raise FileNotFoundError(f"({r.status_code}) Invalid show guid: {guid_show}")
+		Args:
+			title_search (str): Show must contain this string (case-insensitive)
+
+		Raises:
+			ValueError: Invalid search string
+
+		Returns:
+			list: List of _Show objects which match the criteria
+		"""
+
+		r = requests.post(f"{self.api_url}/shows/", data={"title_search":title_search})
+
+		if not r.ok:
+			raise ValueError(f"({r.status_code}) Invalid search: {title_search}")
+
+		return [_Show(self, x) for x in r.json()]
+	
+	
+# Shot-based operations
+	def getShotList(self, guid_show:str)->upco_shot.Shotlist:
+		"""Request a list of all shots for a given show GUID
+
+		Args:
+			guid_show (str): Show GUID (ex: "9779e860-533d-11ea-b1c6-20677cdf2060")
+
+		Raises:
+			FileNotFoundError: Problem during API call
+
+		Returns:
+			upco_shot.Shotlist: A Shotlist containing all shots for the show
+		"""
+		r = requests.get(f"{self.api_url}/shows/{guid_show}/shots/")
+
+		if not r.ok:
+			raise RuntimeError(f"({r.status_code}) Invalid show guid: {guid_show}")
 
 		shotlist = upco_shot.Shotlist()
 		for shot in r.json():
-			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata"))))
+			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))))
 
 		return shotlist
+
+	def getShot(self, guid:str)->upco_shot.Shot:
+		r = requests.get(f"{self.api_url}/shots/{guid}/")
+
+		if not r.ok:
+			raise RuntimeError(f"({r.status_code}) Invalid shot guid: {guid}")
+		elif not r.json():
+			raise FileNotFoundError(f"No shot found with GUID {guid}")
+
+		shot = r.json()
+		return upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
+
+	def findShot(self, shot:upco_shot.Shot=None, metadata:dict=None, subclip:bool=False):
+		r = requests.post(f"{self.api_url}/shots/", data=metadata)
+
+		if not r.ok:
+			raise ValueError(f"({r.status_code}) Invalid search: {metadata}")
+
+		return [upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))) for shot in r.json()]
+
+
 
 class _Show:
 
@@ -63,3 +144,6 @@ class _Show:
 
 	def getShotList(self):
 		return self._client.getShotList(self.guid)
+	
+	def getShot(self, guid):
+		return self._client.getShot(guid)
