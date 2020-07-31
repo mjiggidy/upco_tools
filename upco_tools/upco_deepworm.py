@@ -125,7 +125,7 @@ class DeepwormClient:
 		shot = r.json()
 		return upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
 
-	def findShot(self, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False):
+	def findShot(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False):
 		
 		metadata = {}
 
@@ -138,8 +138,9 @@ class DeepwormClient:
 		if tc_end is not None:
 			metadata["frm_end"] = upco_timecode.Timecode(tc_end, fps).framecount
 		search = {
-			"metadata": metadata,
-			"subclip" : subclip
+			"guid_show": guid_show,
+			"metadata" : metadata,
+			"subclip"  : subclip
 		}
 		
 		r = requests.post(f"{self.api_url}/shots/", json=search)
