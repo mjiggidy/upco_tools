@@ -125,28 +125,31 @@ class DeepwormClient:
 		shot = r.json()
 		return upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
 
-	def findShot(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False):
+	def searchShots(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False, metadata=None):
 		
-		metadata = {}
+		shot_properties = {}
+		metadata = metadata or {}
 
 		if shot is not None:
-			metadata["shot"] = str(shot)
+			shot_properties["shot"] = str(shot)
 		if tc_start is not None:
-			metadata["frm_start"] = upco_timecode.Timecode(tc_start, fps).framecount
+			shot_properties["frm_start"] = upco_timecode.Timecode(tc_start, fps).framecount
 		if tc_duration is not None:
-			metadata["frm_duration"] = upco_timecode.Timecode(tc_duration, fps).framecount
+			shot_properties["frm_duration"] = upco_timecode.Timecode(tc_duration, fps).framecount
 		if tc_end is not None:
-			metadata["frm_end"] = upco_timecode.Timecode(tc_end, fps).framecount
+			shot_properties["frm_end"] = upco_timecode.Timecode(tc_end, fps).framecount
+
 		search = {
+			"shot"     : shot_properties,
 			"guid_show": guid_show,
 			"metadata" : metadata,
-			"subclip"  : subclip
+			"subclip"  : bool(subclip)
 		}
 		
 		r = requests.post(f"{self.api_url}/shots/", json=search)
 
 		if not r.ok:
-			raise ValueError(f"({r.status_code}) Invalid search: {metadata}")
+			raise ValueError(f"({r.status_code}) Invalid search: {search}")
 
 		return [upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))) for shot in r.json()]
 
@@ -164,3 +167,6 @@ class _Show:
 	
 	def getShot(self, guid):
 		return self._client.getShot(guid)
+	
+	def searchShots(self, **kwargs):
+		return self._client.searchShots(guid_show=self.guid, **kwargs)
