@@ -151,7 +151,23 @@ class DeepwormClient:
 		if not r.ok:
 			raise ValueError(f"({r.status_code}) Invalid search: {search}")
 
-		return [upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))) for shot in r.json()]
+		results = []
+		for shot in r.json():
+			result = upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata")))
+			result.guid = shot.get("guid_shot")
+			results.append(result)
+
+		return results
+	
+	def restoreFromDiva(self, guid_shot):
+		# TODO: Quick mockup, need to flesh this out
+		r = requests.get(f"{self.api_url}/shots/{guid_shot}/divarestore")
+
+		if not r.ok:
+			raise FileNotFoundError(f"({r.status_code}) Shot not found in Diva: {guid_shot}")
+
+		return r.json()
+
 
 
 

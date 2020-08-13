@@ -352,6 +352,7 @@ class Shot:
 		self.media_type = self.__class__.MediaType(media)	# Avid Tape or Source File Name column.  May need some rethinking
 		self.metadata   = {}								# Non-critical metadata (Processed below)
 		self.tc_start   = tc_start							# Timecode start (accompanied by Timecode duration/end below)
+		self.guid		= None
 		
 		self._instances  = set()							# Media instances (Diva objects, LTO restore objects, etc)
 
