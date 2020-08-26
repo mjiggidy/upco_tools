@@ -5,5 +5,6 @@ __all__ = [
 	"upco_timecode",
 	"upco_ltfs",
 	"upco_metadata",
-	"upco_shot"
+	"upco_shot",
+	"upco_deepworm"
 ]

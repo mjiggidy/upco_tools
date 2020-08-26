@@ -12,12 +12,18 @@ class DivaCodes(enum.IntEnum):
 	INVALID_PARAMETER		= 1008		 # Example: Invalid character in object name
 	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
 	REQUEST_NOT_FOUND		= 1011		 # Invalid job ID
+	OBJECT_ALREADY_EXISTS	= 1016		 # Diva object already exists
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
 	OBJECT_OFFLINE			= 1023		 # Tape not loaded for object
 	CRITICAL_ERROR			= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class DivaJobStatus(enum.Enum):
 	"""Known job statuses based on outout from `reqinfo`"""
+
+	# Archive object typically goes  ADDED -> QUEUED -> IN_PROGRESS -> COMPLETED
+
+	ADDED		= "Running"
+	QUEUED      = "Waiting for resources"
 	IN_PROGRESS	= "Migrating"	# Possibly only used for Restore operations? Need to investigate during Archive operation
 	COMPLETED	= "Completed"
 	ABORTED		= "Aborted"
@@ -73,7 +79,8 @@ class Diva:
 			print(f"Successfully connected to {manager_ip}:{manager_port}")
 			
 		elif diva_client.returncode == DivaCodes.ALREADY_CONNECTED:
-			print(f"Already connected: {diva_client.stdout}")
+			pass
+			#print(f"Already connected: {diva_client.stdout}")
 		
 		elif diva_client.returncode == DivaCodes.CRITICAL_ERROR:
 			raise RuntimeError(f"Divascript Listener service is not running")

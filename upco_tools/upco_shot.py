@@ -1,6 +1,6 @@
 import pathlib, enum, re, csv
 from io import StringIO
-from . import upco_timecode
+from . import upco_timecode, upco_edl
 
 class Shotlist:
 	"""Maintain a list of shots with support for common exchange formats"""
@@ -135,6 +135,17 @@ class Shotlist:
 				# I don't think we'll ever get here but =====
 				else:
 					raise SyntaxError(f"Unexpected data on line {line_num}: {line_data}")
+		
+		return shotlist
+
+	@classmethod
+	def fromEDL(cls, path_input):
+		
+		shotlist = cls()
+		
+		edl = upco_edl.Edl.fromEdl(path_input)
+		for shot in edl.getSubclips():
+			shotlist.addShot(shot)
 		
 		return shotlist
 
@@ -409,3 +420,11 @@ class Shot:
 	# Media instances
 	def addInstance(self, instance):
 		self._instances.add(instance)
+	
+	def __eq__(self, cmp):
+		
+		try:
+			return all((cmp.shot == self.shot, cmp.tc_start == self.tc_start, cmp.tc_duration == self.tc_duration))
+		except Exception as e:
+		#	print(e)
+			return False
