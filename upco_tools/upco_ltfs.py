@@ -364,7 +364,7 @@ class Schema:
 
 		return filelist
 	
-	def findAllShots(self, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
+	def findAllShots(self, shot_name=None, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
 		
 		import re
 
@@ -413,66 +413,75 @@ class Schema:
 			match = False
 			
 			# If this directory's name matches tape name, assume it's an image sequence and restore the full directory
-			for pat in patterns_tape:
-				match = pat.match(dirname)
-				# If pattern matched directory name
-				if match:
-				
-					# Gather file listing
-					filelist = self.walkSchema(node.find("contents"), pathlib.Path('.'))
-					#print(filelist)
+			if shot_name is not None:
+				match = dirname.lower().startswith(shot_name.lower())
+			else:
+				for pat in patterns_tape:
+					match = pat.match(dirname)
+					if match:
+						match_name = match.group(0)
+						break
 
-					# Walk file tree to get stats
-					#print(f"Found {len(filelist)} files in {pathlib.Path(path, dirname)}: {[x.get('size') for x in filelist]}")
-					#size = sum([x.get("size") for x in filelist])
-					
-					try: startblock = min([x.get("startblock") for x in filelist])
-					except Exception as e:
-						print(f"Freaked the fuck out at {pathlib.Path(path,dirname)}")
-						print(f"Found files:")
-						print(filelist)
-						exit()
-					
-					
-					shot = CameraRawPull(pat.match(dirname).group(0))
-					shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
-					
-					shots.append(shot)
-					break
+			# If pattern matched directory name
+			if match:
 			
-			# Move on to next dir node if we matched this one
-			if match: continue
-			
+				# Gather file listing
+				filelist = self.walkSchema(node.find("contents"), pathlib.Path('.'))
+				#print(filelist)
+
+				# Walk file tree to get stats
+				#print(f"Found {len(filelist)} files in {pathlib.Path(path, dirname)}: {[x.get('size') for x in filelist]}")
+				#size = sum([x.get("size") for x in filelist])
+				
+				try: startblock = min([x.get("startblock") for x in filelist])
+				except Exception as e:
+					print(f"Freaked the fuck out at {pathlib.Path(path,dirname)}")
+					print(f"Found files:")
+					print(filelist)
+					exit()
+				
+				
+				shot = CameraRawPull(shot_name)
+				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
+				
+				shots.append(shot)
+				continue
 			
 			# Otherwise, loop through each file in directory
 			for file in node.findall("contents/file"):
 				filestring = file.find("name").text
+				
+				if shot_name is not None:
+					match = filestring.lower().startswith(shot_name.lower())
+					match_name = shot_name
+				else:
+					for pat in patterns_tape:
+						match = pat.match(filestring)
+						if match:
+							match_name = match.group(0)
+							break
+					
 
-				for pat in patterns_tape:
-					match = pat.match(filestring)
-					if match and filestring.lower().endswith(file_extensions):
+				if match and filestring.lower().endswith(file_extensions):
+				
+					try:
+						startblock = int(file.find("extentinfo/extent/startblock").text)
+						bytecount  = int(file.find("length").text)
+					except:
+						# If file lacks startblock or bytecount info, set it to 0 just to avoid errors down the road
+						# I don't think a file would even be visible on LTFS without this info, but who knows 
+						if self.debug: print("Shot found in schema, but has missing extentinfo.  Restore may have difficulties.", shot.shot, "warning")
+						startblock = 0
+						bytecount = 0
 					
-						try:
-							startblock = int(file.find("extentinfo/extent/startblock").text)
-							bytecount  = int(file.find("length").text)
-						except:
-							# If file lacks startblock or bytecount info, set it to 0 just to avoid errors down the road
-							# I don't think a file would even be visible on LTFS without this info, but who knows 
-							if self.debug: print("Shot found in schema, but has missing extentinfo.  Restore may have difficulties.", shot.shot, "warning")
-							startblock = 0
-							bytecount = 0
-						
-						shot = CameraRawPull(match.group(0))
-						shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
-						shots.append(shot)
-						break
-					
-					
+					shot = CameraRawPull(match_name)
+					shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
+					shots.append(shot)
 			
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
 			dircontents = node.find("contents")
 			if dircontents:
-				shots.extend(self.findAllShots(dircontents, path/dirname))
+				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, path=path/dirname))
 			
 			# Break out after first match
 			# Commented out so we can find a larger filesize later on in the schema
