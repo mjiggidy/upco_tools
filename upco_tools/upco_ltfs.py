@@ -366,7 +366,7 @@ class Schema:
 
 		return filelist
 	
-	def findAllShots(self, current_node=None, path=pathlib.Path(), shot_name=None, file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
+	def findAllShots(self, shot_name=None, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
 		
 		import re
 
@@ -412,19 +412,26 @@ class Schema:
 			
 			match = False
 			
-			# Match shot name if provided
-			if shot_name and dirname.lower().startswith(shot_name.lower()):
-				match = True
-
-			# Or match against known tape patterns
+			# If this directory's name matches tape name, assume it's an image sequence and restore the full directory
+			if shot_name is not None:
+				match = dirname.lower().startswith(shot_name.lower())
 			else:
-				match = any(pat.match(dirname) for pat in patterns_tape)
+				for pat in patterns_tape:
+					match = pat.match(dirname)
+					if match:
+						match_name = match.group(0)
+						break
 
 			# If pattern matched directory name
 			if match:
 			
 				# Gather file listing
 				filelist = self.walkSchema(node.find("contents"), pathlib.Path('.'))
+				#print(filelist)
+
+				# Walk file tree to get stats
+				#print(f"Found {len(filelist)} files in {pathlib.Path(path, dirname)}: {[x.get('size') for x in filelist]}")
+				#size = sum([x.get("size") for x in filelist])
 				
 				try: startblock = min([x.get("startblock") for x in filelist])
 				except Exception as e:
@@ -432,23 +439,28 @@ class Schema:
 					print(f"Found files:")
 					print(filelist)
 					exit()
-
-				shot = CameraRawPull(dirname)
+				
+				
+				shot = CameraRawPull(shot_name)
 				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 				
 				shots.append(shot)
 				continue
 			
-			
 			# Otherwise, loop through each file in directory
 			for file in node.findall("contents/file"):
 				filestring = file.find("name").text
-
-				if shot_name:
+				
+				if shot_name is not None:
 					match = filestring.lower().startswith(shot_name.lower())
-
+					match_name = shot_name
 				else:
-					match = any(pat.match(filestring) for pat in patterns_tape)
+					for pat in patterns_tape:
+						match = pat.match(filestring)
+						if match:
+							match_name = match.group(0)
+							break
+					
 
 				if match and filestring.lower().endswith(file_extensions):
 				
@@ -462,15 +474,14 @@ class Schema:
 						startblock = 0
 						bytecount = 0
 					
-					shot = CameraRawPull(match.group(0))
+					shot = CameraRawPull(match_name)
 					shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
 					shots.append(shot)
-					
 			
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
 			dircontents = node.find("contents")
 			if dircontents:
-				shots.extend(self.findAllShots(dircontents, path/dirname))
+				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, path=path/dirname))
 			
 			# Break out after first match
 			# Commented out so we can find a larger filesize later on in the schema
