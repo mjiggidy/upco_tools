@@ -187,6 +187,7 @@ class Tape:
 # CLASS: Shot =============================================================
 # A Shot object represents a full camera raw shot on a Tape
 # Not much going on here now, but I'll want to flesh this out in the future
+
 class CameraRawPull:
 	class Type(enum.Enum):
 		DIR, FILE = ("Directory", "File")
@@ -283,6 +284,7 @@ class Schema:
 				path_schema = pathlib.Path(path_schema)
 			except Exception as e:
 				raise Exception(f"Problem with schema path: {e}")
+
 		self.path_schema = path_schema
 		
 		# Attempt to parse this succuh
@@ -298,11 +300,11 @@ class Schema:
 			with open(self.path_schema, 'r') as xml_file:
 				self.schema_parsed = ElementTree.parse(xml_file)
 		except Exception as e:
-			raise Exception("This does not appear to be a valid XML file: {}".format(e))
+			raise Exception(f"This does not appear to be a valid XML file: {e}")
 
 		# Validate schema
 		if self.schema_parsed.getroot().tag != self.__class__.LTFS_NODE_ROOT:
-			raise Exception("This XML file does not appear to be a valid LTFS schema: Expected root node \"{}\", found \"{}\" instead.".format(self.__class__.LTFS_NODE_ROOT, self.schema_parsed.getroot().tag))
+			raise Exception(f"This XML file does not appear to be a valid LTFS schema: Expected root node \"{self.__class__.LTFS_NODE_ROOT}\", found \"{self.schema_parsed.getroot().tag}\" instead.")
 		
 		# Get initial info about this schema: LTO Volume Label and a handle into its root directory
 		self.schema_volume = self.schema_parsed.getroot().tag
@@ -312,7 +314,7 @@ class Schema:
 		return self.path_schema.stem
 	
 	# FUNC: walkSchema
-	# Prints a directory listing to std out.  Intended mainly for debugging purposes.
+	# Prints a directory listing to stdout.  Intended mainly for debugging purposes.
 	def walkSchema(self, current_node=None, path=pathlib.Path("/")):
 		
 		filelist = []
@@ -364,7 +366,7 @@ class Schema:
 
 		return filelist
 	
-	def findAllShots(self, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
+	def findAllShots(self, current_node=None, path=pathlib.Path(), shot_name=None, file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
 		
 		import re
 
@@ -401,10 +403,8 @@ class Schema:
 		
 		# Loop through each directory
 		for node in nodes:
-			
-			
-			dirname = node.find("name").text
-			
+
+			dirname = node.find("name").text			
 	
 			# Skip over volume name
 			if dirname == self.__class__.LTFS_BASE_DIR:
@@ -412,61 +412,59 @@ class Schema:
 			
 			match = False
 			
-			# If this directory's name matches tape name, assume it's an image sequence and restore the full directory
-			for pat in patterns_tape:
-				match = pat.match(dirname)
-				# If pattern matched directory name
-				if match:
-				
-					# Gather file listing
-					filelist = self.walkSchema(node.find("contents"), pathlib.Path('.'))
-					#print(filelist)
+			# Match shot name if provided
+			if shot_name and dirname.lower().startswith(shot_name.lower()):
+				match = True
 
-					# Walk file tree to get stats
-					#print(f"Found {len(filelist)} files in {pathlib.Path(path, dirname)}: {[x.get('size') for x in filelist]}")
-					#size = sum([x.get("size") for x in filelist])
-					
-					try: startblock = min([x.get("startblock") for x in filelist])
-					except Exception as e:
-						print(f"Freaked the fuck out at {pathlib.Path(path,dirname)}")
-						print(f"Found files:")
-						print(filelist)
-						exit()
-					
-					
-					shot = CameraRawPull(pat.match(dirname).group(0))
-					shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
-					
-					shots.append(shot)
-					break
+			# Or match against known tape patterns
+			else:
+				match = any(pat.match(dirname) for pat in patterns_tape)
+
+			# If pattern matched directory name
+			if match:
 			
-			# Move on to next dir node if we matched this one
-			if match: continue
+				# Gather file listing
+				filelist = self.walkSchema(node.find("contents"), pathlib.Path('.'))
+				
+				try: startblock = min([x.get("startblock") for x in filelist])
+				except Exception as e:
+					print(f"Freaked the fuck out at {pathlib.Path(path,dirname)}")
+					print(f"Found files:")
+					print(filelist)
+					exit()
+
+				shot = CameraRawPull(dirname)
+				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
+				
+				shots.append(shot)
+				continue
 			
 			
 			# Otherwise, loop through each file in directory
 			for file in node.findall("contents/file"):
 				filestring = file.find("name").text
 
-				for pat in patterns_tape:
-					match = pat.match(filestring)
-					if match and filestring.lower().endswith(file_extensions):
+				if shot_name:
+					match = filestring.lower().startswith(shot_name.lower())
+
+				else:
+					match = any(pat.match(filestring) for pat in patterns_tape)
+
+				if match and filestring.lower().endswith(file_extensions):
+				
+					try:
+						startblock = int(file.find("extentinfo/extent/startblock").text)
+						bytecount  = int(file.find("length").text)
+					except:
+						# If file lacks startblock or bytecount info, set it to 0 just to avoid errors down the road
+						# I don't think a file would even be visible on LTFS without this info, but who knows 
+						if self.debug: print("Shot found in schema, but has missing extentinfo.  Restore may have difficulties.", shot.shot, "warning")
+						startblock = 0
+						bytecount = 0
 					
-						try:
-							startblock = int(file.find("extentinfo/extent/startblock").text)
-							bytecount  = int(file.find("length").text)
-						except:
-							# If file lacks startblock or bytecount info, set it to 0 just to avoid errors down the road
-							# I don't think a file would even be visible on LTFS without this info, but who knows 
-							if self.debug: print("Shot found in schema, but has missing extentinfo.  Restore may have difficulties.", shot.shot, "warning")
-							startblock = 0
-							bytecount = 0
-						
-						shot = CameraRawPull(match.group(0))
-						shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
-						shots.append(shot)
-						break
-					
+					shot = CameraRawPull(match.group(0))
+					shot.setPath(basepath=pathlib.Path(path,dirname), type=CameraRawPull.Type.FILE, filelist=[{"path": pathlib.Path(filestring) ,"size": int(bytecount), "startblock": startblock}], tape=Tape(self.getSchemaName()))
+					shots.append(shot)
 					
 			
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
