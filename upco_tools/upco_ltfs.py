@@ -187,7 +187,6 @@ class Tape:
 # CLASS: Shot =============================================================
 # A Shot object represents a full camera raw shot on a Tape
 # Not much going on here now, but I'll want to flesh this out in the future
-
 class CameraRawPull:
 	class Type(enum.Enum):
 		DIR, FILE = ("Directory", "File")
@@ -284,7 +283,6 @@ class Schema:
 				path_schema = pathlib.Path(path_schema)
 			except Exception as e:
 				raise Exception(f"Problem with schema path: {e}")
-
 		self.path_schema = path_schema
 		
 		# Attempt to parse this succuh
@@ -300,11 +298,11 @@ class Schema:
 			with open(self.path_schema, 'r') as xml_file:
 				self.schema_parsed = ElementTree.parse(xml_file)
 		except Exception as e:
-			raise Exception(f"This does not appear to be a valid XML file: {e}")
+			raise Exception("This does not appear to be a valid XML file: {}".format(e))
 
 		# Validate schema
 		if self.schema_parsed.getroot().tag != self.__class__.LTFS_NODE_ROOT:
-			raise Exception(f"This XML file does not appear to be a valid LTFS schema: Expected root node \"{self.__class__.LTFS_NODE_ROOT}\", found \"{self.schema_parsed.getroot().tag}\" instead.")
+			raise Exception("This XML file does not appear to be a valid LTFS schema: Expected root node \"{}\", found \"{}\" instead.".format(self.__class__.LTFS_NODE_ROOT, self.schema_parsed.getroot().tag))
 		
 		# Get initial info about this schema: LTO Volume Label and a handle into its root directory
 		self.schema_volume = self.schema_parsed.getroot().tag
@@ -314,7 +312,7 @@ class Schema:
 		return self.path_schema.stem
 	
 	# FUNC: walkSchema
-	# Prints a directory listing to stdout.  Intended mainly for debugging purposes.
+	# Prints a directory listing to std out.  Intended mainly for debugging purposes.
 	def walkSchema(self, current_node=None, path=pathlib.Path("/")):
 		
 		filelist = []
@@ -366,13 +364,15 @@ class Schema:
 
 		return filelist
 	
-	def findAllShots(self, shot_name=None, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
+	def findAllShots(self, shot_name=None, current_node=None, path=pathlib.Path(), tape_patterns=None, file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
 		
 		import re
 
 		shots = []
 		
-		templates_tape = (
+		# If not explicit shot name is provided, use the tape patterns
+		if shot_name is None:
+			templates_tape = tape_patterns or (
 				r"[a-z][0-9]{3}c[0-9]{3}_[0-9]{6}_[a-z][a-z0-9]{3}",	# ArriRAW
 				r"[a-z][0-9]{3}_[c,l,r][0-9]{3}_[0-9]{4}[a-z0-9]{2}",	# Redcode
 				r"[a-z][0-9]{3}[c,l,r][0-9]{3}_[0-9]{6}[a-z0-9]{2}",	# Sony Raw
@@ -387,10 +387,7 @@ class Schema:
 				r"D[A-Z]\d{3}_S\d{3}_S\d{3}_T\d{3}",					# Fast 9 Drone
 				r"[A-Z]\d{3}_DPX"										# Fast 9 Crash Cam
 			)
-
-		patterns_tape = {re.compile(pat, re.I) for pat in templates_tape}
-
-		#for pattern in patterns_tape: print(pattern)
+			patterns_tape = {re.compile(pat, re.I) for pat in templates_tape}
 
 		if not isinstance(path, pathlib.Path):
 			try: path = pathlib.Path(path)
@@ -403,8 +400,10 @@ class Schema:
 		
 		# Loop through each directory
 		for node in nodes:
-
-			dirname = node.find("name").text			
+			
+			
+			dirname = node.find("name").text
+			
 	
 			# Skip over volume name
 			if dirname == self.__class__.LTFS_BASE_DIR:
@@ -415,6 +414,7 @@ class Schema:
 			# If this directory's name matches tape name, assume it's an image sequence and restore the full directory
 			if shot_name is not None:
 				match = dirname.lower().startswith(shot_name.lower())
+				match_name = dirname
 			else:
 				for pat in patterns_tape:
 					match = pat.match(dirname)
@@ -441,7 +441,7 @@ class Schema:
 					exit()
 				
 				
-				shot = CameraRawPull(shot_name)
+				shot = CameraRawPull(match_name)
 				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 				
 				shots.append(shot)
@@ -453,7 +453,7 @@ class Schema:
 				
 				if shot_name is not None:
 					match = filestring.lower().startswith(shot_name.lower())
-					match_name = shot_name
+					match_name = filestring.rsplit('.',1)[0]
 				else:
 					for pat in patterns_tape:
 						match = pat.match(filestring)
@@ -481,7 +481,7 @@ class Schema:
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
 			dircontents = node.find("contents")
 			if dircontents:
-				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, path=path/dirname))
+				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, path=path/dirname, tape_patterns=tape_patterns))
 			
 			# Break out after first match
 			# Commented out so we can find a larger filesize later on in the schema
