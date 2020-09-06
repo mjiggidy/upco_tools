@@ -38,7 +38,7 @@ class Tape:
 		try:
 			return str(cmp) == self.name
 			
-		except Exception as e:
+		except Exception:
 			return False
 	
 	def __lt__(self, cmp):
@@ -194,7 +194,7 @@ class CameraRawPull:
 	def __init__(self, shot, fromlist="Custom", alts=None):
 		
 		self.shot = shot
-		self.alts = alts
+		self.alts = alts or []
 		self.size = None
 		self.tape = None
 		self.from_list  = fromlist
@@ -226,8 +226,10 @@ class CameraRawPull:
 
 
 	def __eq__(self, cmp):
-		try: return str(cmp) == self.shot and cmp.getStartblock() == self.getStartblock()
-		except Exception as e: return False
+		try:
+			return str(cmp) == self.shot and cmp.getStartblock() == self.getStartblock()
+		except Exception:
+			return False
 	
 	def __str__(self):
 		return self.shot
@@ -336,7 +338,7 @@ class Schema:
 					"startblock": int(file.find("extentinfo/extent/startblock").text)
 				})
 			except Exception as e:
-				print(f"Omitting file {filename}: Incomplete file entry in schema")
+				print(f"Omitting file {filename}: Incomplete file entry in schema ({e})")
 				continue
 
 			if self.debug: print(f"Added {filelist[-1].get('path')}")
@@ -364,13 +366,13 @@ class Schema:
 
 		return filelist
 	
-	def findAllShots(self, shot_name=None, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
+	def findAllShots(self, shot_name=None, tape_patterns=None, current_node=None, path=pathlib.Path(), file_extensions=(".ari",".r3d",".dpx",".dng",".cine",".braw", ".mov",".mxf",".mp4")):
 		
 		import re
 
 		shots = []
 		
-		templates_tape = (
+		templates_tape = tape_patterns or (
 				r"[a-z][0-9]{3}c[0-9]{3}_[0-9]{6}_[a-z][a-z0-9]{3}",	# ArriRAW
 				r"[a-z][0-9]{3}_[c,l,r][0-9]{3}_[0-9]{4}[a-z0-9]{2}",	# Redcode
 				r"[a-z][0-9]{3}[c,l,r][0-9]{3}_[0-9]{6}[a-z0-9]{2}",	# Sony Raw
@@ -481,7 +483,7 @@ class Schema:
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
 			dircontents = node.find("contents")
 			if dircontents:
-				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, path=path/dirname))
+				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, tape_patterns=templates_tape, path=path/dirname))
 			
 			# Break out after first match
 			# Commented out so we can find a larger filesize later on in the schema
