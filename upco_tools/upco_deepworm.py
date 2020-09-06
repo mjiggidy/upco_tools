@@ -110,11 +110,11 @@ class DeepwormClient:
 
 		shotlist = upco_shot.Shotlist()
 		for shot in r.json():
-			shotlist.addShot(upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))))
+			shotlist.addShot(_Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))))
 
 		return shotlist
 
-	def getShot(self, guid:str)->upco_shot.Shot:
+	def getShot(self, guid:str)->_Shot:
 		r = requests.get(f"{self.api_url}/shots/{guid}/")
 
 		if not r.ok:
@@ -123,7 +123,7 @@ class DeepwormClient:
 			raise FileNotFoundError(f"No shot found with GUID {guid}")
 
 		shot = r.json()
-		return upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
+		return _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
 
 	def searchShots(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False, metadata=None):
 		
@@ -153,8 +153,7 @@ class DeepwormClient:
 
 		results = []
 		for shot in r.json():
-			result = upco_shot.Shot(shot.get("shot"), shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata")))
-			result.guid = shot.get("guid_shot")
+			result = _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata")))
 			results.append(result)
 
 		return results
@@ -167,6 +166,9 @@ class DeepwormClient:
 			raise FileNotFoundError(f"({r.status_code}) Shot not found in Diva: {guid_shot}")
 
 		return r.json()
+	
+	def restoreFromLTO(self, guid_shot):
+		raise NotImplementedError
 
 
 
@@ -174,9 +176,17 @@ class DeepwormClient:
 class _Show:
 
 	def __init__(self, client, show):
-		self.title = show.get("title")
-		self.guid  = show.get("guid_show")
+		self._title = show.get("title")
+		self._guid  = show.get("guid_show")
 		self._client = client
+
+	@property
+	def title(self):
+		return self._title
+	
+	@property
+	def guid(self):
+		return self._guid
 
 	def getShotList(self):
 		return self._client.getShotList(self.guid)
@@ -186,3 +196,33 @@ class _Show:
 	
 	def searchShots(self, **kwargs):
 		return self._client.searchShots(guid_show=self.guid, **kwargs)
+
+
+
+
+class _Shot(upco_shot.Shot):
+	"""Deepworm subclass of upco_shot.Shot, with support for deepworm-specific actions and info, like restores and media instances"""
+	
+	def __init__(self, client, guid, *args, **kwargs):
+		"""Create a Deepworm Shot object"""
+		super(_Shot, self).__init__(*args, **kwargs)
+		
+		self._client = client
+		self._instances = []
+		self._guid = guid
+
+	@property
+	def instances(self):
+		return self._instances
+	
+	@property
+	def guid(self):
+		return self._guid
+	
+	def restoreFromDiva(self):
+		"""Restore HD shot from Diva"""
+		return self._client.restoreFromDiva(self.guid)
+
+	def restoreFromLTO(self):
+		"""Restore original camera file from LTO"""
+		self._client.restoreFromLTO(self.guid)

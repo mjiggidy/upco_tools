@@ -340,6 +340,7 @@ class Shot:
 
 	# Common OCN naming conventions
 	# TODO: May want to expand this into a dictionary eg. {Camera.ARRI, matchPattern} so a Shot can have a cameraType property
+	# TODO: May remove this for now
 	NAMING_PATTERNS = (re.compile(x, re.I) for x in (
 		r"(?P<camroll>[a-z][0-9]{3})(?P<clipindex>c[0-9]{3})_(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})_(?P<camindex>[a-z])(?P<camid>[a-z0-9]{3})",	# Arri
 		r"(?P<camroll>[a-z][0-9]{3})_(?P<clipindex>[c,l,r][0-9]{3})_(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<camid>[a-z0-9]{2})",								# Redcode/Venice
@@ -363,9 +364,6 @@ class Shot:
 		self.media_type = self.__class__.MediaType(media)	# Avid Tape or Source File Name column.  May need some rethinking
 		self.metadata   = {}								# Non-critical metadata (Processed below)
 		self.tc_start   = tc_start							# Timecode start (accompanied by Timecode duration/end below)
-		self.guid		= None
-		
-		self._instances  = set()							# Media instances (Diva objects, LTO restore objects, etc)
 
 		# Duration takes presidence over end TC if both are supplied
 		if tc_duration is not None: self.tc_duration = tc_duration
@@ -400,11 +398,6 @@ class Shot:
 			self.tc_duration = tc_end - self.tc_start
 		else:
 			raise ValueError(f"TC End {tc_end} must not precede TC Start {self.tc_start}")
-	
-	# Instance properties
-	@property
-	def instances(self):
-		return self._instances
 
 	# TODO: Look in to making these @properties as well
 	def addMetadata(self, metadata):	
@@ -417,14 +410,10 @@ class Shot:
 		else:
 			self.metadata.pop(metadata, None)
 	
-	# Media instances
-	def addInstance(self, instance):
-		self._instances.add(instance)
-	
 	def __eq__(self, cmp):
 		
 		try:
 			return all((cmp.shot == self.shot, cmp.tc_start == self.tc_start, cmp.tc_duration == self.tc_duration))
-		except Exception as e:
+		except Exception:
 		#	print(e)
 			return False

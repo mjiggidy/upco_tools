@@ -372,7 +372,9 @@ class Schema:
 
 		shots = []
 		
-		templates_tape = tape_patterns or (
+		# If not explicit shot name is provided, use the tape patterns
+		if shot_name is None:
+			templates_tape = tape_patterns or (
 				r"[a-z][0-9]{3}c[0-9]{3}_[0-9]{6}_[a-z][a-z0-9]{3}",	# ArriRAW
 				r"[a-z][0-9]{3}_[c,l,r][0-9]{3}_[0-9]{4}[a-z0-9]{2}",	# Redcode
 				r"[a-z][0-9]{3}[c,l,r][0-9]{3}_[0-9]{6}[a-z0-9]{2}",	# Sony Raw
@@ -387,10 +389,7 @@ class Schema:
 				r"D[A-Z]\d{3}_S\d{3}_S\d{3}_T\d{3}",					# Fast 9 Drone
 				r"[A-Z]\d{3}_DPX"										# Fast 9 Crash Cam
 			)
-
-		patterns_tape = {re.compile(pat, re.I) for pat in templates_tape}
-
-		#for pattern in patterns_tape: print(pattern)
+			patterns_tape = {re.compile(pat, re.I) for pat in templates_tape}
 
 		if not isinstance(path, pathlib.Path):
 			try: path = pathlib.Path(path)
@@ -417,6 +416,7 @@ class Schema:
 			# If this directory's name matches tape name, assume it's an image sequence and restore the full directory
 			if shot_name is not None:
 				match = dirname.lower().startswith(shot_name.lower())
+				match_name = dirname
 			else:
 				for pat in patterns_tape:
 					match = pat.match(dirname)
@@ -443,7 +443,7 @@ class Schema:
 					exit()
 				
 				
-				shot = CameraRawPull(shot_name)
+				shot = CameraRawPull(match_name)
 				shot.setPath(basepath=pathlib.Path(path, dirname), type=CameraRawPull.Type.DIR, filelist=filelist, tape=Tape(self.getSchemaName()))
 				
 				shots.append(shot)
@@ -455,7 +455,7 @@ class Schema:
 				
 				if shot_name is not None:
 					match = filestring.lower().startswith(shot_name.lower())
-					match_name = shot_name
+					match_name = filestring.rsplit('.',1)[0]
 				else:
 					for pat in patterns_tape:
 						match = pat.match(filestring)
