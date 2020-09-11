@@ -3,14 +3,14 @@
 # Rudimentary for now
 
 from . import upco_shot, upco_timecode
-import requests, json
+import requests, json, configparser, pathlib
 
 class DeepwormClient:
 	"""
 	Python client for interacting with the Deepworm dailies API.
 	"""
 
-	def __init__(self, host="127.0.0.1", port="5000", version="v1"):
+	def __init__(self, host=None, port="5000", version="v1"):
 		"""Construct a connection to the Deepworm REST API.
 
 		Args:
@@ -18,9 +18,45 @@ class DeepwormClient:
 			port (str, optional): Port number. Defaults to "5000".
 			version (str, optional): API version. Defaults to "v1".
 		"""
-		self.api_url = f"http://{host}:{port}/dailies/{version}"
+		self._path_config = pathlib.Path.home()/".deepworm"/"client.ini"
+		
+		if self._path_config.exists():
+			try:
+				file_config = configparser.ConfigParser()
+				file_config.read(self._path_config)
+			except Exception:
+				pass
+
+		if host is None:
+			self._host = "127.0.0.1"
+		
+		if port is None:
+			self._port = 5000
+
+		if version is None:
+			self._version = "v1"
+		
+		self.api_url = f"http://{self._host}:{self._port}/dailies/{self._version}"
 
 		# TODO: Check connection, throw exceptions
+	
+	def writePrefs(self):
+		"""Write connection preferences to an .ini file."""
+
+		file_config = configparser.ConfigParser()
+		
+		# Try to read it
+		file_config.read(self._path_config)
+		
+		file_config["Deepworm Client"] = {"host":self._host,"port":self._port,"version":self._version}
+
+		# Try to write it
+		with self._path_config.open("w") as fileout:
+			fileout.write(file_config)
+
+
+		
+
 
 
 	# Show-based operations
