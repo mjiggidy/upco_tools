@@ -21,21 +21,13 @@ class DeepwormClient:
 
 		# Load config file if present
 		self._path_config = pathlib.Path.home()/".deepworm"/"client.ini"
-		config = self._loadConfig()
+		self._config = self._loadConfig(host=host, port=port, version=version)
 
-		self._host = host or config.get("host")
-		self._port = port or config.get("port")
-		self._version = version or config.get("version")
-
-		missing = [x[0] for x in [("host",self._host), ("port",self._port), ("api version",self._version)] if x[1] is None]
-		if len(missing):
-			raise ValueError(f"No {', '.join(missing)} provided or found in preference file.")
-
-		self.api_url = f"http://{self._host}:{self._port}/dailies/{self._version}"
+		self.api_url = f"http://{self._config.get('host')}:{self._config.get('port')}/dailies/{self._config.get('version')}"
 
 		# TODO: Check connection, throw exceptions
 	
-	def _writeConfig(self):
+	def _saveConfig(self):
 		"""Write connection preferences to an .ini file."""
 
 		config = configparser.ConfigParser()
@@ -47,18 +39,17 @@ class DeepwormClient:
 		except Exception:
 			pass
 		
-		config["Deepworm Server"] = {
-			"host": self._host,
-			"port": self._port,
-			"version": self._version
-		}
+		if "Deepworm Server" not in config.sections():
+			config.add_section("Deepworm Server")
+		
+		config["Deepworm Server"].update(self._config)
 
 		# Try to write it
 		self._path_config.parent.mkdir(parents=True, exist_ok=True)
 		with self._path_config.open("w") as file_config:
 			config.write(file_config)
 
-	def _loadConfig(self):
+	def _loadConfig(self, **kwargs):
 		"""Attempt to load preferences from an .ini file."""
 
 		config = configparser.ConfigParser()
@@ -66,13 +57,18 @@ class DeepwormClient:
 		try:
 			with self._path_config.open("r") as file_config:
 				config.read_file(file_config)
-			if "Deepworm Server" not in config.sections():
-				raise ValueError
-
 		except Exception:
-			# Return empty dict if there were any problems
-			return {}
-	
+			pass
+
+		if "Deepworm Server" not in config.sections():
+			config.add_section("Deepworm Server")	
+
+		config["Deepworm Server"].update({x:str(kwargs.get(x)) for x in kwargs if kwargs.get(x) is not None})
+		
+		missing = [x for x in ("host", "port", "version") if config["Deepworm Server"].get(x) is None]
+		if len(missing):
+			raise ValueError(f"No {', '.join(missing)} was provided or found in config file.")
+
 		return config["Deepworm Server"]
 
 
