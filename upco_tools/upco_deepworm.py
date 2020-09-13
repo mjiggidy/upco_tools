@@ -10,7 +10,7 @@ class DeepwormClient:
 	Python client for interacting with the Deepworm dailies API.
 	"""
 
-	def __init__(self, host=None, port="5000", version="v1"):
+	def __init__(self, host=None, port=None, version=None):
 		"""Construct a connection to the Deepworm REST API.
 
 		Args:
@@ -18,45 +18,62 @@ class DeepwormClient:
 			port (str, optional): Port number. Defaults to "5000".
 			version (str, optional): API version. Defaults to "v1".
 		"""
+
+		# Load config file if present
 		self._path_config = pathlib.Path.home()/".deepworm"/"client.ini"
-		
-		if self._path_config.exists():
-			try:
-				file_config = configparser.ConfigParser()
-				file_config.read(self._path_config)
-			except Exception:
-				pass
+		config = self._loadConfig()
 
-		if host is None:
-			self._host = "127.0.0.1"
-		
-		if port is None:
-			self._port = 5000
+		self._host = host or config.get("host")
+		self._port = port or config.get("port")
+		self._version = version or config.get("version")
 
-		if version is None:
-			self._version = "v1"
-		
+		missing = [x[0] for x in [("host",self._host), ("port",self._port), ("api version",self._version)] if x[1] is None]
+		if len(missing):
+			raise ValueError(f"No {', '.join(missing)} provided or found in preference file.")
+
 		self.api_url = f"http://{self._host}:{self._port}/dailies/{self._version}"
 
 		# TODO: Check connection, throw exceptions
 	
-	def writePrefs(self):
+	def _writeConfig(self):
 		"""Write connection preferences to an .ini file."""
 
-		file_config = configparser.ConfigParser()
+		config = configparser.ConfigParser()
 		
-		# Try to read it
-		file_config.read(self._path_config)
+		# Try to read it, ignoring and problems
+		try:
+			with self._path_config.open("r") as file_config:
+				config.read_file(file_config)
+		except Exception:
+			pass
 		
-		file_config["Deepworm Client"] = {"host":self._host,"port":self._port,"version":self._version}
+		config["Deepworm Server"] = {
+			"host": self._host,
+			"port": self._port,
+			"version": self._version
+		}
 
 		# Try to write it
-		with self._path_config.open("w") as fileout:
-			fileout.write(file_config)
+		self._path_config.parent.mkdir(parents=True, exist_ok=True)
+		with self._path_config.open("w") as file_config:
+			config.write(file_config)
 
+	def _loadConfig(self):
+		"""Attempt to load preferences from an .ini file."""
 
-		
+		config = configparser.ConfigParser()
 
+		try:
+			with self._path_config.open("r") as file_config:
+				config.read_file(file_config)
+			if "Deepworm Server" not in config.sections():
+				raise ValueError
+
+		except Exception:
+			# Return empty dict if there were any problems
+			return {}
+	
+		return config["Deepworm Server"]
 
 
 	# Show-based operations
@@ -150,7 +167,7 @@ class DeepwormClient:
 
 		return shotlist
 
-	def getShot(self, guid:str)->_Shot:
+	def getShot(self, guid:str):
 		r = requests.get(f"{self.api_url}/shots/{guid}/")
 
 		if not r.ok:
