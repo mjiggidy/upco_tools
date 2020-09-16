@@ -483,7 +483,7 @@ class Schema:
 			# Search subdirectories.  If it's found in there, break out of the loop to return the result
 			dircontents = node.find("contents")
 			if dircontents:
-				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, tape_patterns=templates_tape, path=path/dirname))
+				shots.extend(self.findAllShots(shot_name=shot_name, current_node=dircontents, tape_patterns=tape_patterns, path=path/dirname))
 			
 			# Break out after first match
 			# Commented out so we can find a larger filesize later on in the schema

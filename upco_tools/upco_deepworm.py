@@ -114,7 +114,7 @@ class DeepwormClient:
 
 		return shotlist
 
-	def getShot(self, guid:str)->_Shot:
+	def getShot(self, guid):
 		r = requests.get(f"{self.api_url}/shots/{guid}/")
 
 		if not r.ok:
