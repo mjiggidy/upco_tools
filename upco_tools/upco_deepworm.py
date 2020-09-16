@@ -3,14 +3,14 @@
 # Rudimentary for now
 
 from . import upco_shot, upco_timecode
-import requests, json
+import requests, json, configparser, pathlib
 
 class DeepwormClient:
 	"""
 	Python client for interacting with the Deepworm dailies API.
 	"""
 
-	def __init__(self, host="127.0.0.1", port="5000", version="v1"):
+	def __init__(self, host=None, port=None, version=None):
 		"""Construct a connection to the Deepworm REST API.
 
 		Args:
@@ -18,9 +18,58 @@ class DeepwormClient:
 			port (str, optional): Port number. Defaults to "5000".
 			version (str, optional): API version. Defaults to "v1".
 		"""
-		self.api_url = f"http://{host}:{port}/dailies/{version}"
+
+		# Load config file if present
+		self._path_config = pathlib.Path.home()/".deepworm"/"client.ini"
+		self._config = self._loadConfig(host=host, port=port, version=version)
+
+		self.api_url = f"http://{self._config.get('host')}:{self._config.get('port')}/dailies/{self._config.get('version')}"
 
 		# TODO: Check connection, throw exceptions
+	
+	def _saveConfig(self):
+		"""Write connection preferences to an .ini file."""
+
+		config = configparser.ConfigParser()
+		
+		# Try to read it, ignoring and problems
+		try:
+			with self._path_config.open("r") as file_config:
+				config.read_file(file_config)
+		except Exception:
+			pass
+		
+		if "Deepworm Server" not in config.sections():
+			config.add_section("Deepworm Server")
+		
+		config["Deepworm Server"].update(self._config)
+
+		# Try to write it
+		self._path_config.parent.mkdir(parents=True, exist_ok=True)
+		with self._path_config.open("w") as file_config:
+			config.write(file_config)
+
+	def _loadConfig(self, **kwargs):
+		"""Attempt to load preferences from an .ini file."""
+
+		config = configparser.ConfigParser()
+
+		try:
+			with self._path_config.open("r") as file_config:
+				config.read_file(file_config)
+		except Exception:
+			pass
+
+		if "Deepworm Server" not in config.sections():
+			config.add_section("Deepworm Server")	
+
+		config["Deepworm Server"].update({x:str(kwargs.get(x)) for x in kwargs if kwargs.get(x) is not None})
+		
+		missing = [x for x in ("host", "port", "version") if config["Deepworm Server"].get(x) is None]
+		if len(missing):
+			raise ValueError(f"No {', '.join(missing)} was provided or found in config file.")
+
+		return config["Deepworm Server"]
 
 
 	# Show-based operations
@@ -114,7 +163,7 @@ class DeepwormClient:
 
 		return shotlist
 
-	def getShot(self, guid):
+	def getShot(self, guid:str):
 		r = requests.get(f"{self.api_url}/shots/{guid}/")
 
 		if not r.ok:
