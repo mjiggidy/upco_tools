@@ -11,13 +11,7 @@ class DeepwormClient:
 	"""
 
 	def __init__(self, host=None, port=None, version=None):
-		"""Construct a connection to the Deepworm REST API.
-
-		Args:
-			host (str, optional): Host name or IP. Defaults to "127.0.0.1".
-			port (str, optional): Port number. Defaults to "5000".
-			version (str, optional): API version. Defaults to "v1".
-		"""
+		"""Construct a connection to the Deepworm REST API."""
 
 		# Load config file if present
 		self._path_config = pathlib.Path.home()/".deepworm"/"client.ini"
@@ -25,14 +19,14 @@ class DeepwormClient:
 
 		self.api_url = f"http://{self._config.get('host')}:{self._config.get('port')}/dailies/{self._config.get('version')}"
 
-		# TODO: Check connection, throw exceptions
+		# TODO: Check connection
 	
 	def _saveConfig(self):
 		"""Write connection preferences to an .ini file."""
 
 		config = configparser.ConfigParser()
 		
-		# Try to read it, ignoring and problems
+		# Try to read it, ignoring any problems
 		try:
 			with self._path_config.open("r") as file_config:
 				config.read_file(file_config)
@@ -42,6 +36,7 @@ class DeepwormClient:
 		if "Deepworm Server" not in config.sections():
 			config.add_section("Deepworm Server")
 		
+		# Update dict with the latest config
 		config["Deepworm Server"].update(self._config)
 
 		# Try to write it
@@ -71,9 +66,10 @@ class DeepwormClient:
 
 		return config["Deepworm Server"]
 
-
+	# ---
 	# Show-based operations
-	
+	# ---
+
 	def getShowList(self)->list:
 		"""Request a list of all shows in Deepworm
 
@@ -138,8 +134,10 @@ class DeepwormClient:
 
 		return [_Show(self, x) for x in r.json()]
 	
+	# ---
+	# Shot-based operations
+	# ---
 	
-# Shot-based operations
 	def getShotList(self, guid_show:str)->upco_shot.Shotlist:
 		"""Request a list of all shots for a given show GUID
 
@@ -223,6 +221,7 @@ class DeepwormClient:
 
 
 class _Show:
+	"""Deepworm representation of a show, with all operations limited to the scope of the show"""
 
 	def __init__(self, client, show):
 		self._title = show.get("title")
