@@ -36,7 +36,7 @@ class Ale:
 
 		# Parse existing ALE if provided
 		if path_input:
-			self.__parseAleFromFile(path_input)
+			self._parseAleFromFile(path_input)
 
 		# Otherwise start with some basic columns
 		else:
@@ -82,7 +82,7 @@ class Ale:
 		return self.shots	
 
 
-	def __parseAleFromFile(self, path_input):
+	def _parseAleFromFile(self, path_input):
 		"""
 		Parse ALE from file.
 
@@ -189,7 +189,7 @@ class Ale:
 		# ...then return them in the correct order
 		return [x for x in self.columns if x in used_columns]
 
-	def __buildAle(self, stream_output, preserveEmptyColumns=False, omitColumns=None):
+	def _buildAle(self, stream_output, preserveEmptyColumns=False, omitColumns=None):
 		"""
 		Private method to write formatted ALE to output stream.
 
@@ -243,7 +243,7 @@ class Ale:
 		"""
 
 		string_output = StringIO()
-		self.__buildAle(string_output, preserveEmptyColumns, omitColumns)
+		self._buildAle(string_output, preserveEmptyColumns, omitColumns)
 		return string_output.getvalue()
 		
 	def writeAle(self, path_output, preserveEmptyColumns=False, omitColumns=None):
@@ -267,6 +267,6 @@ class Ale:
 		path_output = pathlib.Path(path_output)
 		
 		with path_output.open('w') as file_output:
-			self.__buildAle(file_output, preserveEmptyColumns, omitColumns)
+			self._buildAle(file_output, preserveEmptyColumns, omitColumns)
 
 		return path_output
