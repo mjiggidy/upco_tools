@@ -1,4 +1,4 @@
-import pathlib, enum, re, csv
+import pathlib, enum, re, csv, warnings
 from io import StringIO
 from . import upco_timecode, upco_edl
 
@@ -12,7 +12,7 @@ class Shotlist:
 		DATA = enum.auto()
 
 	@classmethod
-	def fromALE(cls, path_input):
+	def fromAle(cls, path_input):
 		"""
 		Build a Shotlist instance by parsing an ALE.
 
@@ -33,6 +33,7 @@ class Shotlist:
 		ale_heading = {}
 		shotlist = cls()
 
+		# Read in the ALE
 		with path_input.open('r') as ale_input:
 
 			parsed_columns = []
@@ -40,17 +41,20 @@ class Shotlist:
 			
 
 			# Spin through ALE file line by line and parse ALE
-			for line_num, line_data in enumerate(ale_input.read().splitlines()):
+			for line_num, line_data in enumerate(ale_input):
 				
+				line_data = line_data.rstrip('\n')
+
 				# Skip empty lines
 				if not line_data.strip():
 					continue
 				
 				line_num += 1
 
-				# Parse Data block (main thing) =====
+				# ==================================
+				# Parse Data block (masterclip logs)
+				# ==================================
 				if parse_mode == cls._AleParseModes.DATA:
-					
 					shot_data = line_data.split('\t')
 					
 					# Freak out if column count doesn't match shot attribute count
@@ -68,11 +72,12 @@ class Shotlist:
 					else:
 						raise ValueError(f"No Tape or Source File Name found for shot on line {line_num}")
 					
-					# Check for 24-hour rollover in tc_end if no tc duration
+					# Need tc_start and tc_duration.  So calculate duration from tc_end if it's not provided
 					if not metadata.get("Duration"):
 						if not metadata.get("End"):
 							raise ValueError(f"No end timecode specified for shot on line {line_num}")
 						
+						# Avoid situations where tc_start > tc_end due to 24-hour rollover
 						try:
 							fps = ale_heading.get("FPS", 24000/1001)
 							metadata["Start"] = upco_timecode.Timecode(metadata.get("Start"), fps)
@@ -88,15 +93,16 @@ class Shotlist:
 						tc_start    = metadata.get("Start"),
 						tc_duration = metadata.get("Duration"),
 						tc_end      = metadata.get("End"),
-						#metadata    = metadata,
+						metadata    = metadata,
 						media       = shot_type,
 						#source      = path_input,
 						frm_rate    = ale_heading.get("FPS")
 					)
-					masterclip.addMetadata(metadata)
 					shotlist.addShot(masterclip)
 
-				# Parse Heading block =====
+				# ===================
+				# Parse Heading block
+				# ===================
 				elif parse_mode == cls._AleParseModes.HEADING:
 					
 					if line_data.lower() == "column":
@@ -106,7 +112,9 @@ class Shotlist:
 					header = line_data.split('\t')
 					ale_heading.update({header[0]:header[1]})
 				
-				# Parse Column names ======
+				# ==================
+				# Parse Column names
+				# ==================
 				elif parse_mode == cls._AleParseModes.COLUMN:
 					
 					if line_data.lower() == "data":
@@ -124,7 +132,9 @@ class Shotlist:
 						if dupes:
 							raise SyntaxError(f"Found duplicate column names on line {line_num}:\n{','.join(dupes)}")
 
-				# File parsing starts here =====
+				# ========================
+				# File parsing starts here
+				# ========================
 				elif parse_mode == cls._AleParseModes.START:
 					if line_data.lower() == "heading":
 						parse_mode = cls._AleParseModes.HEADING
@@ -132,14 +142,14 @@ class Shotlist:
 
 					raise SyntaxError(f"Unexpected data before Heading on line {line_num}:\n{line_data}")
 				
-				# I don't think we'll ever get here but =====
+				# I don't think we'll ever get here but
 				else:
 					raise SyntaxError(f"Unexpected data on line {line_num}: {line_data}")
 		
 		return shotlist
 
 	@classmethod
-	def fromEDL(cls, path_input):
+	def fromEdl(cls, path_input):
 		
 		shotlist = cls()
 		
@@ -150,7 +160,7 @@ class Shotlist:
 		return shotlist
 
 	@classmethod
-	def fromCSV(cls, path_input):
+	def fromCsv(cls, path_input):
 
 		shotlist = cls()
 
@@ -178,6 +188,18 @@ class Shotlist:
 		
 		return shotlist
 	
+	@property
+	def shots(self):
+		return self._shots
+	
+	@property
+	def tc_framerates(self):
+		return set(shot.tc_start.framerate_tc for shot in self._shots)
+
+	@property
+	def framerates(self):
+		return set(round(shot.framerate,2) for shot in self._shots)
+	
 	def __init__(self, shotlist=None):
 		"""
 		Create or parse an existing Avid Log Exchange (ALE).
@@ -192,13 +214,18 @@ class Shotlist:
 			self -- An ALE object
 		"""
 
-		self.shots = []
+		self._shots = []
 		if shotlist: self.addShot(shotlist)
 
 
 	def addShot(self, shot):
+		if not isinstance(shot, Shot):
+			raise ValueError(f"Shot must be of type upco_shot.Shot (got {type(shot)})")
+		
+		if shot.tc_start.framerate_tc not in self.tc_framerates and len(self.tc_framerates):
+			warnings.warn(f"Adding a {shot.framerate} fps shot to a shotlist of {self.framerates} fps")
 
-		self.shots.append(shot)
+		self._shots.append(shot)
 		
 	
 	def getClips(self):
@@ -210,10 +237,10 @@ class Shotlist:
 		Returns:
 			list -- Lists of clips defined as dictionaries
 		"""
-		return self.shots	
+		return self._shots	
 
 
-	def _buildAle(self, stream_output, preserveEmptyColumns=False, omitColumns=None, heading={"FIELD_DELIM":"TABS","VIDEO_FORMAT":1080,"FPS":23.98}, sourcecol="Tape"):
+	def _buildAle(self, stream_output, preserveEmptyColumns=False, omitColumns=None, heading=None, sourcecol="Tape"):
 		"""
 		Private method to write formatted ALE to output stream.
 
@@ -233,11 +260,26 @@ class Shotlist:
 		used_columns = ["Name",sourcecol,"Start","Duration","End"]
 		meta_columns = []
 		pat_invalid  = re.compile("[\t\r\n]+")
+		heading = heading or {"FIELD_DELIM":"TABS","VIDEO_FORMAT":1080}
+
+		# Double-check that we're not mixing timecode framerates
+		# For now, we're considering timecode framerates to be compatible with each other regardless of video framerates
+		# Ex 23.98 and 24 video share 24 timecode
+		if len(self.tc_framerates) > 1:
+			raise TypeError(f"Shot list contains incompatible framerates: {self.tc_framerates}")
+
+		# Set ALE FPS if not specified...
+		if "FPS" not in heading:
+			heading["FPS"] = min(self.framerates)
+		
+		# ...or double-check that it is accurate
+		elif round(float(heading.get("FPS"))) not in self.tc_framerates:
+			raise ValueError(f"Cannot use ALE framerate {heading.get('FPS')} fps for shots which are {self.framerates} fps.")
 		
 		# Build case-insensitive list of unique metadata columns from all shots
 		# Omit blank columns
 		# TODO: Find a more elegant way to do this
-		for shot in self.shots:
+		for shot in self._shots:
 			for col in shot.metadata.keys():
 				if col.lower() not in [x.lower() for x in meta_columns] and col.lower() not in [x.lower() for x in used_columns] and shot.metadata.get(col).strip() != "":
 					meta_columns.append(col)
@@ -263,7 +305,7 @@ class Shotlist:
 		print("Data", file=stream_output)
 		
 		# TODO: Clean tabs or newlines from data
-		for shot in self.shots:
+		for shot in self._shots:
 		
 			# TODO: Deep copy metadata dict? Or handle in shot.getMetadata()?
 			metadata = shot.metadata
@@ -338,29 +380,11 @@ class Shot:
 	# Meaningful columns to be omitted from generic metadata dict
 	SPECIAL_COLUMNS = ("Tape","Source File Name","Start","End","Duration")
 
-	# Common OCN naming conventions
-	# TODO: May want to expand this into a dictionary eg. {Camera.ARRI, matchPattern} so a Shot can have a cameraType property
-	# TODO: May remove this for now
-	NAMING_PATTERNS = (re.compile(x, re.I) for x in (
-		r"(?P<camroll>[a-z][0-9]{3})(?P<clipindex>c[0-9]{3})_(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})_(?P<camindex>[a-z])(?P<camid>[a-z0-9]{3})",	# Arri
-		r"(?P<camroll>[a-z][0-9]{3})_(?P<clipindex>[c,l,r][0-9]{3})_(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<camid>[a-z0-9]{2})",								# Redcode/Venice
-		r"(?P<camroll>[a-z][0-9]{3})(?P<clipindex>[c,l,r][0-9]{3})_(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<camid>[a-z0-9]{2})",				# Sony Raw
-		r"(?P<camroll>[a-z][0-9]{3})_(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<hour>[0-9]{2})(?P<minute>[0-9]{2})_(?P<clipindex>C[0-9]{3})",						# Black Magic Cinema Camera
-		r"(?P<camroll>[A-Z]{1,3}\d{3})_S\d{3}_S\d{3}_(?P<clipindex>T\d{3})",	# Drone/Helicopter
-		r"(?P<camroll>[A-Z]\d{3})(?P<clipindex>(G[A-Z]\d{3,})",					# GoPro Footage
-		r"(?P<camroll>[A-Z]\d{3})_(?P<clipindex>P\d{3,})",						# Panasonic Lumix
-		r"IMG_(?P<clipindex>[0-9]+)",											# iPhone/DSLR
-		r"DJI_(?P<clipindex>[0-9]+)",											# DJI Drones
-		r"MVI_(?P<clipindex>[0-9]+)",											# Consumer cameras
-		r"(?P<labroll>CA35_\d{3})",												# 35mm Labroll (Company 3 UK)
-		r"(?P<labroll>[A-Z]\d{3})_DPX",											# 35mm Labroll (Generic)
-		r"(?P<labroll>LR\d{8})"													# 35mm Labroll (Efilm)
-	))
-		
+
 	def __init__(self, shot, tc_start, tc_duration=None, tc_end=None, media=MediaType.TAPE, frm_rate=24000/1001, metadata=None):
 		
 		self.shot       = str(shot)							# Shot name (ex A001C003_200711_R1CB)
-		self.frm_rate   = float(frm_rate)					# Video frame rate
+		self.framerate   = float(frm_rate)					# Video frame rate
 		self.media_type = self.__class__.MediaType(media)	# Avid Tape or Source File Name column.  May need some rethinking
 		self.metadata   = {}								# Non-critical metadata (Processed below)
 		self.tc_start   = tc_start							# Timecode start (accompanied by Timecode duration/end below)
@@ -379,21 +403,21 @@ class Shot:
 		return self._tc_start	
 	@tc_start.setter
 	def tc_start(self, tc_start):
-		self._tc_start = upco_timecode.Timecode(tc_start, self.frm_rate)
+		self._tc_start = upco_timecode.Timecode(tc_start, self.framerate)
 
 	@property
 	def tc_duration(self):
 		return self._tc_duration
 	@tc_duration.setter
 	def tc_duration(self, tc_duration):
-		self._tc_duration = upco_timecode.Timecode(tc_duration, self.frm_rate)
+		self._tc_duration = upco_timecode.Timecode(tc_duration, self.framerate)
 	
 	@property
 	def tc_end(self):
 		return self.tc_start + self.tc_duration
 	@tc_end.setter
 	def tc_end(self, tc_end):
-		tc_end = upco_timecode.Timecode(tc_end, self.frm_rate)
+		tc_end = upco_timecode.Timecode(tc_end, self.framerate)
 		if self.tc_start < tc_end:
 			self.tc_duration = tc_end - self.tc_start
 		else:
