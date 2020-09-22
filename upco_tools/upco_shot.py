@@ -226,18 +226,10 @@ class Shotlist:
 			warnings.warn(f"Adding a {shot.framerate} fps shot to a shotlist of {self.framerates} fps")
 
 		self._shots.append(shot)
-		
 	
-	def getClips(self):
-		"""
-		Gets all clips in ALE as a list of dictionaries.
-
-		Recommended to use getShots() instead.  getClips() is maintained for backward compatibility.
-
-		Returns:
-			list -- Lists of clips defined as dictionaries
-		"""
-		return self._shots	
+	def getShots(self):
+		# TODO: Add some sort of ability to query certain properties?
+		return self.shots
 
 
 	def _buildAle(self, stream_output, preserveEmptyColumns=False, omitColumns=None, heading=None, sourcecol="Tape"):
@@ -370,6 +362,19 @@ class Shotlist:
 
 		return path_output
 
+	# Makin' it listy
+	def __iter__(self):
+		return iter(self._shots)
+	
+	def __getitem__(self, key):
+		return self._shots[key]
+	
+	def __len__(self):
+		return len(self._shots)
+	
+	def __repr__(self):
+		return f"{self.__class__.__name__}({len(self)} shot{'' if len(self) == 1 else 's'}, {self.framerates} fps)"
+
 class Shot:
 	"""Defines a shot"""
 
@@ -441,3 +446,6 @@ class Shot:
 		except Exception:
 		#	print(e)
 			return False
+	
+	def __repr__(self):
+		return f"{self.__class__.__name__}({self.shot}, tc_start={self.tc_start}, tc_end={self.tc_end}, framerate={self.framerate})"
