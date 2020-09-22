@@ -383,16 +383,16 @@ class Shot:
 		TAPE, FILE = ("Tape","File")
 
 	# Meaningful columns to be omitted from generic metadata dict
-	SPECIAL_COLUMNS = ("Tape","Source File Name","Start","End","Duration")
+	SPECIAL_COLUMNS = ("Tape","Source File Name","Start","End","Duration","FPS")
 
 
 	def __init__(self, shot, tc_start, tc_duration=None, tc_end=None, media=MediaType.TAPE, frm_rate=24000/1001, metadata=None):
 		
-		self.shot       = str(shot)							# Shot name (ex A001C003_200711_R1CB)
-		self.framerate   = float(frm_rate)					# Video frame rate
+		self.shot		= str(shot)							# Shot name (ex A001C003_200711_R1CB)
+		self.framerate	= float(frm_rate)					# Video frame rate
 		self.media_type = self.__class__.MediaType(media)	# Avid Tape or Source File Name column.  May need some rethinking
-		self.metadata   = {}								# Non-critical metadata (Processed below)
-		self.tc_start   = tc_start							# Timecode start (accompanied by Timecode duration/end below)
+		self.metadata	= {}								# Non-critical metadata (Processed below)
+		self.tc_start	= tc_start							# Timecode start (accompanied by Timecode duration/end below)
 
 		# Duration takes presidence over end TC if both are supplied
 		if tc_duration is not None: self.tc_duration = tc_duration
