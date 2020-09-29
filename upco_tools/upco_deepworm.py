@@ -200,10 +200,52 @@ class DeepwormClient:
 
 		results = []
 		for shot in r.json():
-			result = _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata")))
+			result = _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_duration=shot.get("frm_duration"), frm_rate=shot.get("frm_rate"), metadata=json.loads(shot.get("metadata")))
 			results.append(result)
 
 		return results
+	
+	def addSelect(self, reel, shot, tc_start=None, tc_duration=None, tc_end=None, frm_rate=23.98):
+		
+		if isinstance(shot, upco_shot.Shot):
+			select_info = {
+				"shot": shot.shot,
+				"frm_start": tc_start.framecount,
+				"frm_duration": tc_duration.framecount,
+				"reel": reel
+			}
+		
+		else:
+			if tc_start:
+				tc_start = upco_timecode.Timecode(tc_start, frm_rate)
+			else:
+				raise ValueError("No start timecode provided")
+
+			if tc_duration is not None:
+				tc_duration = upco_timecode.Timecode(tc_duration, frm_rate)
+			elif tc_end is not None:
+				tc_duration = upco_timecode.Timecode(tc_end, frm_rate) - tc_start
+			else:
+				raise ValueError("No timecode duration or end timecode provided")
+
+			select_info = {
+				"shot": shot,
+				"frm_start": tc_start.framecount,
+				"frm_dur": tc_duration.framecount,
+				"reel": reel
+			}
+
+		r = requests.post(f"{self.api_url}/selects/", json=select_info)
+
+		if not r.ok:
+			raise Exception(f"({r.status_code}) Error checking in {shot} to {reel}")
+
+		shot_found = r.json()
+
+		select_info.update({"metadata": shot_found.get("metadata"), "selects_reel": reel})
+		return select_info
+		
+		
 	
 	def restoreFromDiva(self, guid_shot):
 		# TODO: Quick mockup, need to flesh this out
