@@ -169,7 +169,7 @@ class DeepwormClient:
 		elif not r.json():
 			raise FileNotFoundError(f"No shot found with GUID {guid}")
 
-		shot = r.json()
+		shot = r.json()[0]
 		return _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
 
 	def searchShots(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False, metadata=None):
