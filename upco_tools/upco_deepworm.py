@@ -205,7 +205,7 @@ class DeepwormClient:
 
 		return results
 	
-	def addSelect(self, reel, shot, tc_start=None, tc_duration=None, tc_end=None, frm_rate=23.98):
+	def addSelect(self, guid_show, shot, reel, tc_start=None, tc_duration=None, tc_end=None, frm_rate=23.98):
 		
 		if isinstance(shot, upco_shot.Shot):
 			select_info = {
@@ -222,27 +222,31 @@ class DeepwormClient:
 				raise ValueError("No start timecode provided")
 
 			if tc_duration is not None:
-				tc_duration = upco_timecode.Timecode(tc_duration, frm_rate)
+				tc_end = tc_start + upco_timecode.Timecode(tc_duration, frm_rate)
 			elif tc_end is not None:
-				tc_duration = upco_timecode.Timecode(tc_end, frm_rate) - tc_start
+				tc_end = upco_timecode.Timecode(tc_end, frm_rate)
 			else:
 				raise ValueError("No timecode duration or end timecode provided")
 
 			select_info = {
+				"guid_show": guid_show,
 				"shot": shot,
 				"frm_start": tc_start.framecount,
-				"frm_dur": tc_duration.framecount,
-				"reel": reel
+				"frm_end": tc_end.framecount,
+				"selects_reel": reel
 			}
 
-		r = requests.post(f"{self.api_url}/selects/", json=select_info)
+		r = requests.post(f"{self.api_url}/shows/{guid_show}/selects/", json=select_info)
 
 		if not r.ok:
 			raise Exception(f"({r.status_code}) Error checking in {shot} to {reel}")
 
 		shot_found = r.json()
 
-		select_info.update({"metadata": shot_found.get("metadata"), "selects_reel": reel})
+		if not r.json():
+			raise RuntimeError(f"Unknown error, check dat survur")
+
+		select_info.update({"metadata": json.loads(shot_found.get("metadata")), "selects_reel": shot_found.get("selects_reel")})
 		return select_info
 		
 		
@@ -253,6 +257,7 @@ class DeepwormClient:
 
 		if not r.ok:
 			raise FileNotFoundError(f"({r.status_code}) Shot not found in Diva: {guid_shot}")
+
 
 		return r.json()
 	
@@ -286,6 +291,9 @@ class _Show:
 	
 	def searchShots(self, **kwargs):
 		return self._client.searchShots(guid_show=self.guid, **kwargs)
+	
+	def addSelect(self, *args, **kwargs):
+		return self._client.addSelect(self.guid, *args, **kwargs)
 
 
 
