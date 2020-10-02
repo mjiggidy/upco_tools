@@ -209,7 +209,7 @@ class DeepwormClient:
 		
 		if isinstance(shot, upco_shot.Shot):
 			select_info = {
-				"shot": shot.shot,
+				"shot_name": shot.shot,
 				"frm_start": tc_start.framecount,
 				"frm_duration": tc_duration.framecount,
 				"reel": reel
@@ -230,13 +230,13 @@ class DeepwormClient:
 
 			select_info = {
 				"guid_show": guid_show,
-				"shot": shot,
+				"shot_name": shot,
 				"frm_start": tc_start.framecount,
 				"frm_end": tc_end.framecount,
 				"selects_reel": reel
 			}
 
-		r = requests.post(f"{self.api_url}/shows/{guid_show}/selects/", json=select_info)
+		r = requests.post(f"{self.api_url}/shows/{guid_show}/selects/add", json=select_info)
 
 		if not r.ok:
 			raise Exception(f"({r.status_code}) Error checking in {shot} to {reel}")
