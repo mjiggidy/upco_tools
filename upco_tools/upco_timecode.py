@@ -139,7 +139,7 @@ class Timecode:
 	def getFramecount(self):
 		return self.framecount
 	
-	def getFramerate(self, tc_rate=False):
+	def getFramerate(self, tc_rate=True):
 		return self.framerate_tc if tc_rate else self.framerate
 		
 	# METHOD: Convert timecode to new framerate

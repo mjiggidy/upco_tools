@@ -116,26 +116,9 @@ class Edl:
 			return '\n'.join(final)
 
 	# Load EDL from file if specified
-	@classmethod
-	def fromEdl(cls, path_edl):
-		"""Parse an EDL file into an Edl object
+	def _parseFromFile(self, path_edl):
 
-		Args:
-			path_edl (str|pathlib.Path): Valid path to an input EDL
-
-		Raises:
-			FileNotFoundError: Invalid or non-existent path to EDL
-			RuntimeError: EDL contains syntax errors
-
-		Returns:
-			Edl: Edl object
-		"""
-		
-		# Verify EDL path
 		path_edl = pathlib.Path(path_edl)
-		if not path_edl.exists(): raise FileNotFoundError("File does not exist")
-
-		edl = cls()
 
 		# Parse each line in the EDL and add to events list
 		with path_edl.open("r", encoding="utf-8") as file_edl:
@@ -147,12 +130,12 @@ class Edl:
 
 				try:
 					# Line describes a standard edit
-					if cls._Event.pattern_cut.match(line):
-						last_event = edl.addEvent(cls._Event.pattern_cut.match(line))
+					if self.__class__._Event.pattern_cut.match(line):
+						last_event = self.addEvent(self.__class__._Event.pattern_cut.match(line))
 
 					# Line describes a motion effect
-					elif cls._Event.pattern_motion.match(line):
-						last_event.addMotionEffect(cls._Event.pattern_motion.match(line))
+					elif self.__class__._Event.pattern_motion.match(line):
+						last_event.addMotionEffect(self.__class__._Event.pattern_motion.match(line))
 
 					# Line is a comment
 					elif line.strip().startswith('*') and last_event:
@@ -164,12 +147,10 @@ class Edl:
 				except Exception as e:
 					raise RuntimeError(f"Error parsing EDL on line {linenum}: {e}\nLine: {line}")
 
-		if not len(edl.events):
+		if not len(self.events):
 			raise RuntimeError(f"{path_edl.name} does not appear to be a valid EDL file.")
-			
-		return edl
 
-	def __init__(self):
+	def __init__(self, path_edl=None):
 
 		self.event_number_padding = 6
 		self.tc_duration = upco_timecode.Timecode()
@@ -177,6 +158,9 @@ class Edl:
 		self.edl_fcm = "NON-DROP FRAME"
 		self.events = []
 		self.path_edl = None
+
+		if path_edl is not None:
+			self._parseFromFile(path_edl)
 					
 	def addEvent(self, event):
 
@@ -243,7 +227,7 @@ class Edl:
 if __name__ == "__main__":
 
 	try:
-		edl = Edl.fromEdl("test_edl.edl")
+		edl = Edl("test_edl.edl")
 	except Exception as e:
 		print(f"Havin problems: {e}")
 	

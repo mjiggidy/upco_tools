@@ -153,7 +153,7 @@ class Shotlist:
 		
 		shotlist = cls()
 		
-		edl = upco_edl.Edl.fromEdl(path_input)
+		edl = upco_edl.Edl(path_input)
 		for shot in edl.getSubclips():
 			shotlist.addShot(shot)
 		
