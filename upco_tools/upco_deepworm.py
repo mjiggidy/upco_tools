@@ -138,6 +138,28 @@ class DeepwormClient:
 	# Shot-based operations
 	# ---
 	
+	def _buildShot(self, info:dict):
+		"""Build a _Shot object from an API return"""
+
+		shot = _Shot(client=self, guid=info.get("guid_shot"), shot=info.get("shot_name"), tc_start=info.get("frm_start"), tc_duration=info.get("frm_duration"),  frm_rate=info.get("frm_rate"))
+
+		# Add metadata if possible
+		try:
+			shot.addMetadata(json.loads(info.get("metadata")))
+		except Exception:
+			# Ignoring errors parsing metadata for now
+			pass
+		
+		# Add media instances if any
+		if info.get("diva_name"):
+			shot.instances.append({"type":"diva", "name":info.get("diva_name")})
+		if info.get("proxy_name"):
+			shot.instances.append({"type":"proxy","name":info.get("proxy_name")})
+		# TODO: LTO
+
+		return shot
+
+
 	def getShotList(self, guid_show:str)->upco_shot.Shotlist:
 		"""Request a list of all shots for a given show GUID
 
@@ -157,7 +179,7 @@ class DeepwormClient:
 
 		shotlist = upco_shot.Shotlist()
 		for shot in r.json():
-			shotlist.addShot(_Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_duration=shot.get("frm_duration"), metadata=json.loads(shot.get("metadata"))))
+			shotlist.addShot(self._buildShot(shot))
 
 		return shotlist
 
@@ -170,7 +192,7 @@ class DeepwormClient:
 			raise FileNotFoundError(f"No shot found with GUID {guid}")
 
 		shot = r.json()[0]
-		return _Shot(client=self, guid=shot.get("guid_shot"), shot=shot.get("shot"), tc_start=shot.get("frm_start"), tc_end=shot.get("frm_end"), metadata=json.loads(shot.get("metadata")))
+		return self._buildShot(shot)
 
 	def searchShots(self, guid_show=None, shot:str=None, tc_start:upco_timecode.Timecode=None, tc_duration:upco_timecode.Timecode=None, tc_end:upco_timecode.Timecode=None, fps=24000/1001, subclip:bool=False, metadata=None):
 		
@@ -306,7 +328,7 @@ class _Shot(upco_shot.Shot):
 		super(_Shot, self).__init__(*args, **kwargs)
 		
 		self._client = client
-		self._instances = []
+		self._instances = []	# List of instance objects?  dicts for now
 		self._guid = guid
 
 	@property
