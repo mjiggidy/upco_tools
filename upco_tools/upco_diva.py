@@ -4,6 +4,8 @@
 
 import subprocess, pathlib, enum, datetime
 
+DIVA_SUBPROC_TIMEOUT = None		# TODO: Support 30-sec timeout
+
 class DivaCodes(enum.IntEnum):
 	"""Diva status codes based on executable return values"""
 	OK = 0								 # Success
@@ -13,15 +15,18 @@ class DivaCodes(enum.IntEnum):
 	OBJECT_NOT_FOUND		= 1009		 # Object not found in given category (could also mean invalid category)
 	REQUEST_NOT_FOUND		= 1011		 # Invalid job ID
 	OBJECT_ALREADY_EXISTS	= 1016		 # Diva object already exists
+	STORAGE_NOT_FOUND		= 1017		 # No tapes are open
 	DESTINATION_NOT_FOUND	= 1018		 # Invalid src/destination
 	OBJECT_OFFLINE			= 1023		 # Tape not loaded for object
+	REQUEST_PENDING			= 3221225786 # TODO: Unknown status, possibly a pending request, return value is possibly overflow?
 	CRITICAL_ERROR			= 4294967295 # 32-bit unsigned int max value, probably meant to be -1
 
 class DivaJobStatus(enum.Enum):
 	"""Known job statuses based on outout from `reqinfo`"""
 
-	# Archive object typically goes  ADDED -> QUEUED -> IN_PROGRESS -> COMPLETED
+	# Archive object typically goes  PENDING -> ADDED -> QUEUED -> IN_PROGRESS -> COMPLETED
 
+	PENDING		= "Pending"
 	ADDED		= "Running"
 	QUEUED      = "Waiting for resources"
 	IN_PROGRESS	= "Migrating"	# Possibly only used for Restore operations? Need to investigate during Archive operation
@@ -196,23 +201,28 @@ class Diva:
 			int: Diva archive request ID
 		"""
 
+		
 		path_source = pathlib.PureWindowsPath(path_source)
+		relpath = path_source.relative_to(path_source.drive).parent
+			
 
+		
 		# TODO: Determine server source automatically; fail if invalid source for Diva
 		server_source = "archive"
-
+		
 		diva_client = subprocess.run([
 			str(self.divascript_exec), "archive",
 			"-obj", str(path_source.stem),
 			"-cat", str(category),
 			"-grp", str(media_group),
 			"-src", str(server_source),
-			"-fpr", str(path_source.relative_to(path_source.drive).relative_to(path_source.root).parent),
+			"-fpr", str(relpath),
 			"-filelist", str(path_source.name)
 			],
 			text = True,
 			capture_output = True
 		)
+
 		
 		# Evaluate return code
 		if diva_client.returncode == DivaCodes.OK:
@@ -249,6 +259,7 @@ class Diva:
 			str(self.divascript_exec), "reqinfo",
 			"-req", str(job_id)],
 			text = True,
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			capture_output = True
 		)
 
