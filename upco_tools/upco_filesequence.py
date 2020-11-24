@@ -14,9 +14,9 @@ class Sequencer:
 		self.sequences = []
 
 		for path in sorted(pathlib.Path(path) for path in pathlist):
-			self.__addSequence(path)
+			self._addSequence(path)
 
-	def __addSequence(self, path):
+	def _addSequence(self, path):
 
 		match = self.__class__.pattern_sequence.match(path.stem)
 
@@ -54,9 +54,9 @@ class FileSequence:
 		self.min = self.max = int(index)
 	
 	def __str__(self):
-		return str(self.grouped())
+		return str(self.group())
 
-	def grouped(self):
+	def group(self):
 		if self.isSingle():
 			return pathlib.Path(self.parent, f"{self.basename}{self.ext}")
 		else:
