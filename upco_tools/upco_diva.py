@@ -76,6 +76,7 @@ class Diva:
 			str(self.divascript_exec), "connect",
 			"-mi", str(manager_ip),
 			"-mp", str(manager_port)],
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			text = True,
 			capture_output = True
 		)
@@ -142,6 +143,7 @@ class Diva:
 			"-obj", object_name,
 			"-cat", category,
 			"-src", destination],
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			text = True,
 			capture_output = True
 		)
@@ -219,6 +221,7 @@ class Diva:
 			"-fpr", str(relpath),
 			"-filelist", str(path_source.name)
 			],
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			text = True,
 			capture_output = True
 		)
@@ -302,6 +305,7 @@ class Diva:
 			str(self.divascript_exec), "objinfo",
 			"-obj", str(object_name),
 			"-cat", str(category)],
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			text = True,
 			capture_output = True
 		)
@@ -327,6 +331,7 @@ class Diva:
 			"-cat", str(category),
 			"-grp", str(group)],
 			text = True,
+			timeout = DIVA_SUBPROC_TIMEOUT,
 			capture_output = True
 		)
 
