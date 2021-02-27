@@ -109,8 +109,11 @@ class Shotlist:
 						parse_mode = cls._AleParseModes.COLUMN
 						continue
 					
-					header = line_data.split('\t')
-					ale_heading.update({header[0]:header[1]})
+					try:
+						header = line_data.split('\t')
+						ale_heading.update({header[0].strip():header[1].strip()})
+					except Exception as e:
+						raise SyntaxError(f"Invalid header data on line {line_num}: {line_data}")
 				
 				# ==================
 				# Parse Column names
